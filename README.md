@@ -51,8 +51,3 @@ mise run dev:frontend   # фронтенд: http://localhost:5173
 
 Для production-сборки выполните `pnpm build`; собранный бэкенд запускается командой `pnpm --filter @app/backend start` (порт задаётся переменной `PORT`, по умолчанию `3000`).
 
-## Соглашения
-
-- Use Conventional Commits: `<type>(<scope>): <description>`. Scope is optional; when useful, choose `api`, `backend`, `frontend`, `build`, or `deps`.
-- Types: `feat`, `fix`, `refactor`, `test`, `docs`, `style`, `build`, `ci`, `chore`. Use `build(deps)` for dependency updates; `style` means code formatting, not UI styling.
-

@@ -24,5 +24,5 @@
 
 ## Conventions
 
-- Commit messages follow Conventional Commits from README: `<type>(<scope>): <description>`. Scope is optional; use `api`, `backend`, `frontend`, `build`, or `deps` when useful.
+- Commit messages follow Conventional Commits: `<type>(<scope>): <description>`. Scope is optional; use `api`, `backend`, `frontend`, `build`, or `deps` when useful.
 - Types: `feat`, `fix`, `refactor`, `test`, `docs`, `style`, `build`, `ci`, `chore`. Use `build(deps)` for dependency updates; `style` means code formatting, not UI styling.
