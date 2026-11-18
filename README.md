@@ -18,40 +18,41 @@
 - Слоты, которые заняла встреча, больше не доступны для бронирования.
 
 
-
-[![hexlet-check](https://github.com/znaeff/ai-for-developers-project-386/actions/workflows/hexlet-check.yml/badge.svg)](https://github.com/znaeff/ai-for-developers-project-386/actions)
-
-Разработайте совместно с ИИ сервис для бронирования календаря
-
-Учебный проект Хекслета: https://ru.hexlet.io/programs/ai-for-developers
-Как это должно работать: https://files.hexlet.app/a/2ipc5m
-
 ## Стек
 
-- Разное
+- **Монорепозиторий:** pnpm workspaces (`apps/backend`, `apps/frontend`), версии инструментов управляются через [mise](https://mise.jdx.dev/) (Node.js 22 и pnpm указаны в `mise.toml`).
+- **Бэкенд:** TypeScript + Node.js 22, встроенный модуль `node:http`. Единственный метод `GET /reserve` возвращает текст `Reserved`.
+- **Фронтенд:** TypeScript, Vite, React, shadcn/ui на базе Tailwind CSS v4. Одна страница с кнопкой `Check`.
+- **Тесты:** ESLint (линтер), `tsc --noEmit` (проверка типов), Vitest (дымовой тест доступности бэкенда). Все проверки объединяет задача `mise run check`.
 
 ## Установка
 
-<!-- Опишите установку: клонирование, зависимости, переменные окружения -->
+```bash
+mise install   # установить Node.js 22 и pnpm из mise.toml
+pnpm install   # установить зависимости всех пакетов монорепозитория
+```
+
+## Тесты
 
 ```bash
-git clone https://github.com/znaeff/ai-for-developers-project-386.git
-cd ai-for-developers-project-386
+mise run check
 ```
+
+Одна команда последовательно запускает линтер (`pnpm lint`), проверку типов (`pnpm typecheck`) и дымовой тест (`pnpm test`). Эти же проверки выполняются в GitHub Actions на каждый пуш и pull request (workflow `.github/workflows/ci.yml`). Тест сам поднимает бэкенд на свободном порту, проверяет, что `GET /reserve` отвечает кодом `200` и текстом `Reserved`, и закрывает сервер; запускать бэкенд отдельно не нужно.
 
 ## Использование
 
-<!-- Добавьте примеры запуска и запись asciinema — именно это смотрит работодатель -->
+```bash
+mise run dev:backend    # бэкенд: http://localhost:3000/reserve
+mise run dev:frontend   # фронтенд: http://localhost:5173
+```
 
----
+Можно запустить оба процесса одной командой: `mise run dev`. Откройте http://localhost:5173 и нажмите `Check` — страница покажет ответ `reserve` (`Reserved`) или HTTP-код ошибки. Запрос идёт на `/api/reserve`, а Vite проксирует его на `http://localhost:3000/reserve`.
 
-<details>
-<summary>Автоматические тесты Хекслета</summary>
+Для production-сборки выполните `pnpm build`; собранный бэкенд запускается командой `pnpm --filter @app/backend start` (порт задаётся переменной `PORT`, по умолчанию `3000`).
 
-Тесты запускаются на каждый коммит. За запуск отвечает файл `.github/workflows/hexlet-check.yml` — не удаляйте и не переименовывайте ни его, ни репозиторий.
+## Соглашения
 
-</details>
+- Use Conventional Commits: `<type>(<scope>): <description>`. Scope is optional; when useful, choose `api`, `backend`, `frontend`, `build`, or `deps`.
+- Types: `feat`, `fix`, `refactor`, `test`, `docs`, `style`, `build`, `ci`, `chore`. Use `build(deps)` for dependency updates; `style` means code formatting, not UI styling.
 
-## О Хекслете
-
-[Хекслет](https://ru.hexlet.io/) — школа программирования: авторские программы обучения с практикой, поддержкой наставников и реальными проектами, которые остаются в резюме. Этот репозиторий — один из таких проектов.
