@@ -1,0 +1,19 @@
+[tools]
+node = "22"
+pnpm = "12.18.0"
+
+[tasks.check]
+description = "Линтер, проверка типов и дымовой тест бэкенда"
+run = ["pnpm lint", "pnpm typecheck", "pnpm test"]
+
+[tasks.dev]
+description = "Запуск бэкенда и фронтенда одновременно"
+run = "pnpm -r --parallel dev"
+
+[tasks."dev:backend"]
+description = "Запуск только бэкенда"
+run = "pnpm --filter @app/backend dev"
+
+[tasks."dev:frontend"]
+description = "Запуск только фронтенда"
+run = "pnpm --filter @app/frontend dev"
