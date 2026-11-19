@@ -22,7 +22,7 @@
 
 - **Монорепозиторий:** pnpm workspaces (`apps/backend`, `apps/frontend`), версии инструментов управляются через [mise](https://mise.jdx.dev/) (Node.js 22 и pnpm указаны в `mise.toml`).
 - **Бэкенд:** TypeScript + Node.js 22, встроенный модуль `node:http`. Единственный метод `GET /reserve` возвращает текст `Reserved`.
-- **Фронтенд:** TypeScript, Vite, React, shadcn/ui на базе Tailwind CSS v4. Одна страница с кнопкой `Check`.
+- **Фронтенд:** TypeScript, Vite, React, shadcn/ui на базе Tailwind CSS v4. Стартовая страница со ссылками на страницы гостя и владельца (пока заглушки), навигация без роутера.
 - **Тесты:** ESLint (линтер), `tsc --noEmit` (проверка типов), Vitest (дымовой тест доступности бэкенда). Все проверки объединяет задача `mise run check`.
 
 ## Установка
@@ -47,7 +47,9 @@ mise run dev:backend    # бэкенд: http://localhost:3000/reserve
 mise run dev:frontend   # фронтенд: http://localhost:5173
 ```
 
-Можно запустить оба процесса одной командой: `mise run dev`. Откройте http://localhost:5173 и нажмите `Check` — страница покажет ответ `reserve` (`Reserved`) или HTTP-код ошибки. Запрос идёт на `/api/reserve`, а Vite проксирует его на `http://localhost:3000/reserve`.
+Можно запустить оба процесса одной командой: `mise run dev`. Откройте http://localhost:5173 — на стартовой странице «Календарь звонков» две ссылки: «Бронировать встречу» (`/guest`) и «Управление календарём» (`/owner`). Сейчас это заглушки «Страница в разработке», с которых можно вернуться «На главную».
+
+Бэкенд по-прежнему отвечает на `GET /reserve` текстом `Reserved`; кнопка `Check` с главной убрана. Запрос к `/api/reserve` всё ещё проксируется Vite на `http://localhost:3000/reserve`.
 
 Для production-сборки выполните `pnpm build`; собранный бэкенд запускается командой `pnpm --filter @app/backend start` (порт задаётся переменной `PORT`, по умолчанию `3000`).
 
