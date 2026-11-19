@@ -26,3 +26,13 @@
 
 - Commit messages follow Conventional Commits: `<type>(<scope>): <description>`. Scope is optional; use `api`, `backend`, `frontend`, `build`, or `deps` when useful.
 - Types: `feat`, `fix`, `refactor`, `test`, `docs`, `style`, `build`, `ci`, `chore`. Use `build(deps)` for dependency updates; `style` means code formatting, not UI styling.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs for this repo live in GitHub Issues (`znaeff/ai-for-developers-project-386`). See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context domain docs: root `GLOSSARY.md` and `docs/adr/`. See `docs/agents/domain.md`.
