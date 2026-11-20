@@ -33,7 +33,8 @@
 - **Бэкенд:** TypeScript + Node.js 22, встроенный модуль `node:http`. API: `GET/POST /meeting-types`, `GET /meeting-types/:id/slots`, `GET/POST /bookings`; служебный `GET /reserve` возвращает текст `Reserved`. В контейнере сервер также раздаёт собранный фронтенд и понимает префикс `/api`. Контракт описан в `docs/adr/0003-api-contract.md`.
 - **Фронтенд:** TypeScript, Vite, React, shadcn/ui на базе Tailwind CSS v4. Стартовая страница со ссылками на страницы гостя и владельца, навигация без роутера. На `/owner` Владелец создаёт Типы встреч, видит их список и список всех Броней с кнопкой «Обновить»; список Броней также обновляется при возврате фокуса на вкладку. На `/guest` Гость выбирает Тип встречи, видит свободные Слоты, сгруппированные по дням, затем выбирает Слот, вводит имя и почту и получает подтверждение Брони.
 - **Docker:** multi-stage образ на Node 22; один контейнер отдаёт интерфейс и API на одном порту (`PORT`, по умолчанию `3000`).
-- **Тесты:** ESLint (линтер), `tsc --noEmit` (проверка типов), Vitest (HTTP-тесты бэкенда), Playwright (end-to-end тесты фронтенда). Линтер, типы и юнит-тесты объединяет `mise run check`; e2e запускаются отдельно через `mise run test:e2e`.
+- **Контракт:** TypeSpec (`contracts/main.tsp`) → OpenAPI (`contracts/openapi/openapi.json`) → TypeScript SDK (`apps/frontend/src/api/generated`).
+- **Тесты:** ESLint (линтер), `tsc --noEmit` (проверка типов), Vitest (HTTP- и contract-тесты бэкенда), Playwright (end-to-end тесты фронтенда). Все проверки, включая генерацию и e2e, объединяет `mise run check`.
 
 ## Установка
 
@@ -41,6 +42,19 @@
 mise install   # установить Node.js 22 и pnpm из mise.toml
 pnpm install   # установить зависимости всех пакетов монорепозитория
 ```
+
+## Контракт и SDK
+
+Источник истины для API — `contracts/main.tsp`. Из него одной командой генерируются OpenAPI и клиентский SDK:
+
+```bash
+mise run generate
+```
+
+- `contracts/openapi/openapi.json` — OpenAPI 3.0.
+- `apps/frontend/src/api/generated/**` — TypeScript SDK, который использует фронтенд.
+
+Сгенерированные файлы коммитятся и не редактируются вручную. Меняйте `contracts/main.tsp` и повторяйте генерацию. Серверный код не генерируется: бэкенд работает на `node:http`, поэтому обработчики поддерживаются вручную и проверяются contract- и HTTP-тестами.
 
 ## Docker
 
@@ -65,15 +79,23 @@ docker run --rm -e PORT=8080 -p 8080:8080 calendar-booking:local
 mise run check
 ```
 
-Одна команда последовательно запускает линтер (`pnpm lint`), проверку типов (`pnpm typecheck`) и тесты бэкенда (`pnpm test`). Эти же проверки выполняются в GitHub Actions на каждый пуш и pull request (workflow `.github/workflows/ci.yml`). HTTP-тесты сами поднимают бэкенд на свободном порту, создают Типы встреч и Брони через API и закрывают сервер; запускать бэкенд отдельно не нужно.
+Одна команда последовательно запускает:
 
-End-to-end тесты фронтенда запускаются отдельно:
+1. генерацию OpenAPI и SDK с проверкой отсутствия diff;
+2. линтер (`pnpm lint`);
+3. проверку типов (`pnpm typecheck`);
+4. HTTP- и contract-тесты бэкенда (`pnpm test`);
+5. end-to-end тесты Playwright с реальными бэкендом и Vite (`pnpm test:e2e`).
+
+Эти же проверки выполняются в GitHub Actions на каждый пуш и pull request (workflow `.github/workflows/ci.yml`). HTTP-тесты сами поднимают бэкенд на свободном порту, создают Типы встреч и Брони через API и закрывают сервер; запускать бэкенд отдельно не нужно.
+
+Для точечного запуска e2e:
 
 ```bash
 mise run test:e2e
 ```
 
-Playwright сам поднимает бэкенд на 3000 (с `E2E_RESET=1`) и Vite на 5173 и проверяет реальные страницы; перед каждым тестом fixture вызывает `POST /api/__test__/reset`, очищая Типы встреч и Брони. Тесты выполняются последовательно (`workers: 1`), чтобы сброс не пересекался с параллельными сценариями. В CI это делает workflow `.github/workflows/playwright.yml`.
+Playwright сам поднимает бэкенд на 3000 (с `E2E_RESET=1`) и Vite на 5173 и проверяет реальные страницы; перед каждым тестом fixture вызывает `POST /api/__test__/reset`, очищая Типы встреч и Брони. Тесты выполняются последовательно (`workers: 1`), чтобы сброс не пересекался с параллельными сценариями. Для быстрой проверки без генерации и e2e используйте `mise run check:fast`.
 
 ## Использование
 
@@ -86,7 +108,7 @@ mise run dev:frontend   # фронтенд: http://localhost:5173
 
 ## API
 
-Типы встреч и Брони хранятся в памяти процесса и сбрасываются при его рестарте. Полный контракт — в `docs/adr/0003-api-contract.md`.
+Типы встреч и Брони хранятся в памяти процесса и сбрасываются при его рестарте. Машинный контракт — `contracts/openapi/openapi.json`, его источник — `contracts/main.tsp`; rationale записан в `docs/adr/0003-api-contract.md`.
 
 - `GET /meeting-types` — список Типов встреч.
 - `POST /meeting-types` — создание Типа встречи. Тело запроса: `{ "title": "…", "description": "…", "durationMinutes": 30 }`. `durationMinutes` — положительное целое число минут. Успех — `201` с созданным Типом встречи; невалидные данные, битый JSON или тело больше 1 МиБ — `400` с телом `{ "error": "…" }`.
