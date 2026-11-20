@@ -1,32 +1,21 @@
-export type MeetingType = {
-  id: string
-  title: string
-  description: string
-  durationMinutes: number
-}
+import { client } from '@/api/generated/client.gen'
+import {
+  createBooking as sdkCreateBooking,
+  createMeetingType as sdkCreateMeetingType,
+  listBookings as sdkListBookings,
+  listMeetingTypes as sdkListMeetingTypes,
+  listSlots as sdkListSlots,
+  type Booking,
+  type BookingInput,
+  type ErrorResponse,
+  type MeetingType,
+  type MeetingTypeInput,
+  type Slot,
+} from '@/api/generated'
 
-export type MeetingTypeInput = Omit<MeetingType, 'id'>
+client.setConfig({ baseUrl: '/api' })
 
-export type Slot = {
-  startsAt: string
-  endsAt: string
-}
-
-export type Booking = {
-  id: string
-  meetingTypeId: string
-  startsAt: string
-  guestName: string
-  guestEmail: string
-  createdAt: string
-}
-
-export type BookingInput = {
-  meetingTypeId: string
-  startsAt: string
-  guestName: string
-  guestEmail: string
-}
+export type { Booking, BookingInput, MeetingType, MeetingTypeInput, Slot }
 
 export class ApiError extends Error {
   readonly status: number
@@ -38,57 +27,60 @@ export class ApiError extends Error {
   }
 }
 
-async function readErrorMessage(response: Response): Promise<string> {
-  try {
-    const body = (await response.json()) as { error?: unknown }
-    if (typeof body.error === 'string' && body.error !== '') {
-      return body.error
-    }
-  } catch {
-    // Fall back to the status-based message below.
-  }
-  return `Запрос завершился с ошибкой ${response.status}`
+type SdkResult<T> = {
+  data?: T
+  error?: unknown
+  response?: Response
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let response: Response
+function isErrorResponse(value: unknown): value is ErrorResponse {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'error' in value &&
+    typeof value.error === 'string'
+  )
+}
+
+async function unwrap<T>(result: Promise<SdkResult<T>>): Promise<T> {
   try {
-    response = await fetch(`/api${path}`, init)
-  } catch {
+    const { data, error, response } = await result
+    const status = response?.status ?? 0
+
+    if (error !== undefined) {
+      throw new ApiError(
+        isErrorResponse(error) ? error.error : 'Ошибка запроса',
+        status,
+      )
+    }
+    if (data === undefined) {
+      throw new ApiError('Сервер вернул пустой ответ', status)
+    }
+    return data
+  } catch (caught) {
+    if (caught instanceof ApiError) {
+      throw caught
+    }
     throw new ApiError('Не удалось связаться с сервером', 0)
   }
-
-  if (!response.ok) {
-    throw new ApiError(await readErrorMessage(response), response.status)
-  }
-
-  return (await response.json()) as T
 }
 
 export function listMeetingTypes(): Promise<MeetingType[]> {
-  return request('/meeting-types')
+  return unwrap(sdkListMeetingTypes())
 }
 
 export function createMeetingType(input: MeetingTypeInput): Promise<MeetingType> {
-  return request('/meeting-types', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  })
+  return unwrap(sdkCreateMeetingType({ body: input }))
 }
 
 export function listSlots(meetingTypeId: string): Promise<Slot[]> {
-  return request(`/meeting-types/${encodeURIComponent(meetingTypeId)}/slots`)
+  return unwrap(sdkListSlots({ path: { id: meetingTypeId } }))
 }
 
 export function listBookings(): Promise<Booking[]> {
-  return request('/bookings')
+  return unwrap(sdkListBookings())
 }
 
 export function createBooking(input: BookingInput): Promise<Booking> {
-  return request('/bookings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  })
+  return unwrap(sdkCreateBooking({ body: input }))
 }
