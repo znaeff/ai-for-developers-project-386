@@ -1,22 +1,28 @@
 import { useState, type FormEvent } from 'react'
+import { inputClassName } from '@/components/formStyles'
 import { Button } from '@/components/ui/button'
-import { createBooking, type Booking, type MeetingType, type Slot } from '@/lib/api'
+import {
+  ApiError,
+  createBooking,
+  type Booking,
+  type MeetingType,
+  type Slot,
+} from '@/lib/api'
 import { formatMoscowDay, formatMoscowTime } from '@/lib/format'
 
 type BookingFormProps = {
   meetingType: MeetingType
   slot: Slot
   onBooked: (booking: Booking) => void
+  onConflict: () => void
   onCancel: () => void
 }
-
-const inputClassName =
-  'w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 
 export function BookingForm({
   meetingType,
   slot,
   onBooked,
+  onConflict,
   onCancel,
 }: BookingFormProps) {
   const [guestName, setGuestName] = useState('')
@@ -40,6 +46,11 @@ export function BookingForm({
       })
       onBooked(booking)
     } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 409) {
+        onConflict()
+        return
+      }
+
       setError(caught instanceof Error ? caught.message : 'Не удалось забронировать встречу')
     } finally {
       setIsSubmitting(false)

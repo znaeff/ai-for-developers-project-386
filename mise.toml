@@ -3,7 +3,7 @@ node = "22"
 pnpm = "12.18.0"
 
 [tasks.check]
-description = "Линтер, проверка типов и дымовой тест бэкенда"
+description = "Линтер, проверка типов и тесты бэкенда"
 run = ["pnpm lint", "pnpm typecheck", "pnpm test"]
 
 [tasks."test:e2e"]

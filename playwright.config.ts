@@ -13,14 +13,14 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './e2e-tests',
-  /* Run tests in files in parallel */
-  fullyParallel: true,
+  /* E2E tests share one backend state, so they run one at a time */
+  fullyParallel: false,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /* Run tests sequentially to keep the reset endpoint deterministic */
+  workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
@@ -42,8 +42,8 @@ export default defineConfig({
   /* Run the backend and Vite dev server before starting the tests */
   webServer: [
     {
-      command: 'pnpm --filter @app/backend dev',
-      url: 'http://localhost:3000/reserve',
+      command: 'E2E_RESET=1 pnpm --filter @app/backend dev',
+      url: 'http://localhost:3000/meeting-types',
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },

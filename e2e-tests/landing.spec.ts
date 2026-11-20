@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 test('landing page links to the guest and owner pages', async ({ page }) => {
   await page.goto('/')

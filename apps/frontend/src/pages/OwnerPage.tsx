@@ -3,69 +3,47 @@ import { BookingList } from '@/components/BookingList'
 import { MeetingTypeForm } from '@/components/MeetingTypeForm'
 import { MeetingTypeList } from '@/components/MeetingTypeList'
 import { PageLayout } from '@/components/PageLayout'
-import {
-  listBookings,
-  listMeetingTypes,
-  type BookingListItem,
-  type MeetingType,
-} from '@/lib/api'
+import { listBookings, listMeetingTypes } from '@/lib/api'
+import { useApiResource } from '@/lib/useApiResource'
 
 export function OwnerPage() {
-  const [meetingTypes, setMeetingTypes] = useState<MeetingType[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [bookings, setBookings] = useState<BookingListItem[]>([])
-  const [isLoadingBookings, setIsLoadingBookings] = useState(true)
-  const [bookingsError, setBookingsError] = useState<string | null>(null)
-  const [bookingsVersion, setBookingsVersion] = useState(0)
+  const [meetingTypesReloadKey, setMeetingTypesReloadKey] = useState(0)
+  const [bookingsReloadKey, setBookingsReloadKey] = useState(0)
+
+  const meetingTypesResource = useApiResource(
+    listMeetingTypes,
+    [meetingTypesReloadKey],
+    {
+      fallbackError: 'Не удалось загрузить типы встреч',
+    },
+  )
+  const bookingsResource = useApiResource(listBookings, [bookingsReloadKey], {
+    fallbackError: 'Не удалось загрузить брони',
+  })
+
+  const meetingTypes = meetingTypesResource.data ?? []
+  const bookings = bookingsResource.data ?? []
+
+  function refresh() {
+    setMeetingTypesReloadKey((key) => key + 1)
+    setBookingsReloadKey((key) => key + 1)
+  }
 
   useEffect(() => {
-    let cancelled = false
+    function handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        refresh()
+      }
+    }
 
-    listMeetingTypes()
-      .then((loaded) => {
-        if (!cancelled) setMeetingTypes(loaded)
-      })
-      .catch((caught: unknown) => {
-        if (!cancelled) {
-          setLoadError(
-            caught instanceof Error ? caught.message : 'Не удалось загрузить типы встреч',
-          )
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false)
-      })
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
-      cancelled = true
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
-
-  useEffect(() => {
-    let cancelled = false
-    setIsLoadingBookings(true)
-    setBookingsError(null)
-
-    listBookings()
-      .then((loaded) => {
-        if (!cancelled) setBookings(loaded)
-      })
-      .catch((caught: unknown) => {
-        if (!cancelled) {
-          setBookingsError(
-            caught instanceof Error ? caught.message : 'Не удалось загрузить брони',
-          )
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingBookings(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [bookingsVersion])
 
   return (
     <PageLayout
@@ -74,19 +52,23 @@ export function OwnerPage() {
     >
       <MeetingTypeForm
         onCreated={(meetingType) =>
-          setMeetingTypes((current) => [...current, meetingType])
+          meetingTypesResource.setData((current) => [
+            ...(current ?? []),
+            meetingType,
+          ])
         }
       />
       <MeetingTypeList
-        isLoading={isLoading}
-        loadError={loadError}
+        isLoading={meetingTypesResource.isLoading}
+        loadError={meetingTypesResource.error}
         meetingTypes={meetingTypes}
       />
       <BookingList
         bookings={bookings}
-        isLoading={isLoadingBookings}
-        loadError={bookingsError}
-        onRefresh={() => setBookingsVersion((version) => version + 1)}
+        isLoading={bookingsResource.isLoading}
+        loadError={bookingsResource.error}
+        meetingTypes={meetingTypes}
+        onRefresh={refresh}
       />
     </PageLayout>
   )

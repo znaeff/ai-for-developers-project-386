@@ -1,13 +1,11 @@
 import { useState, type FormEvent } from 'react'
+import { inputClassName } from '@/components/formStyles'
 import { Button } from '@/components/ui/button'
 import { createMeetingType, type MeetingType } from '@/lib/api'
 
 type MeetingTypeFormProps = {
   onCreated: (meetingType: MeetingType) => void
 }
-
-const inputClassName =
-  'w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50'
 
 export function MeetingTypeForm({ onCreated }: MeetingTypeFormProps) {
   const [title, setTitle] = useState('')

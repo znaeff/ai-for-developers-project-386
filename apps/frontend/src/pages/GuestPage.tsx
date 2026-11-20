@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { BookingConfirmation } from '@/components/BookingConfirmation'
 import { BookingForm } from '@/components/BookingForm'
 import { PageLayout } from '@/components/PageLayout'
@@ -12,87 +12,38 @@ import {
   type Slot,
 } from '@/lib/api'
 import { formatDuration } from '@/lib/format'
+import { useApiResource } from '@/lib/useApiResource'
 
 export function GuestPage() {
-  const [meetingTypes, setMeetingTypes] = useState<MeetingType[]>([])
-  const [isLoadingTypes, setIsLoadingTypes] = useState(true)
-  const [typesError, setTypesError] = useState<string | null>(null)
   const [selectedType, setSelectedType] = useState<MeetingType | null>(null)
-  const [slots, setSlots] = useState<Slot[]>([])
-  const [isLoadingSlots, setIsLoadingSlots] = useState(false)
-  const [slotsError, setSlotsError] = useState<string | null>(null)
-  const [slotsVersion, setSlotsVersion] = useState(0)
+  const [slotsReloadKey, setSlotsReloadKey] = useState(0)
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null)
   const [booking, setBooking] = useState<Booking | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
+  const meetingTypesResource = useApiResource(listMeetingTypes, [], {
+    fallbackError: 'Не удалось загрузить типы встреч',
+  })
+  const slotsResource = useApiResource(
+    () => (selectedType ? listSlots(selectedType.id) : Promise.resolve([])),
+    [selectedType?.id, slotsReloadKey],
+    {
+      fallbackError: 'Не удалось загрузить слоты',
+      enabled: selectedType !== null,
+      resetKey: selectedType?.id,
+    },
+  )
 
-    listMeetingTypes()
-      .then((loaded) => {
-        if (!cancelled) setMeetingTypes(loaded)
-      })
-      .catch((caught: unknown) => {
-        if (!cancelled) {
-          setTypesError(
-            caught instanceof Error ? caught.message : 'Не удалось загрузить типы встреч',
-          )
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingTypes(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!selectedType) {
-      setSlots([])
-      setSlotsError(null)
-      setIsLoadingSlots(false)
-      return
-    }
-
-    let cancelled = false
-    setIsLoadingSlots(true)
-    setSlotsError(null)
-
-    listSlots(selectedType.id)
-      .then((loaded) => {
-        if (!cancelled) setSlots(loaded)
-      })
-      .catch((caught: unknown) => {
-        if (!cancelled) {
-          setSlotsError(
-            caught instanceof Error ? caught.message : 'Не удалось загрузить слоты',
-          )
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoadingSlots(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [selectedType, slotsVersion])
+  const meetingTypes = meetingTypesResource.data ?? []
+  const slots = slotsResource.isLoading ? [] : (slotsResource.data ?? [])
 
   function selectMeetingType(meetingType: MeetingType) {
     setSelectedType(meetingType)
-    setSlots([])
-    setSlotsError(null)
-    setIsLoadingSlots(true)
     setSelectedSlot(null)
     setBooking(null)
   }
 
   function returnToMeetingTypes() {
     setSelectedType(null)
-    setSlots([])
-    setSlotsError(null)
     setSelectedSlot(null)
     setBooking(null)
   }
@@ -105,7 +56,12 @@ export function GuestPage() {
   function handleBooked(created: Booking) {
     setBooking(created)
     setSelectedSlot(null)
-    setSlotsVersion((version) => version + 1)
+    setSlotsReloadKey((key) => key + 1)
+  }
+
+  function handleConflict() {
+    setSelectedSlot(null)
+    setSlotsReloadKey((key) => key + 1)
   }
 
   return (
@@ -147,21 +103,22 @@ export function GuestPage() {
                 meetingType={selectedType}
                 onBooked={handleBooked}
                 onCancel={() => setSelectedSlot(null)}
+                onConflict={handleConflict}
                 slot={selectedSlot}
               />
             ) : null}
 
-            {isLoadingSlots ? (
+            {slotsResource.isLoading ? (
               <p className="text-muted-foreground">Загрузка слотов…</p>
             ) : null}
 
-            {slotsError ? (
+            {slotsResource.error ? (
               <p className="text-sm text-destructive" role="alert">
-                {slotsError}
+                {slotsResource.error}
               </p>
             ) : null}
 
-            {!isLoadingSlots && !slotsError && slots.length === 0 ? (
+            {!slotsResource.isLoading && !slotsResource.error && slots.length === 0 ? (
               <p className="text-muted-foreground">Свободных слотов нет.</p>
             ) : null}
 
@@ -178,17 +135,19 @@ export function GuestPage() {
         <section className="space-y-4">
           <h2 className="text-lg font-semibold">Выберите тип встречи</h2>
 
-          {isLoadingTypes ? (
+          {meetingTypesResource.isLoading ? (
             <p className="text-muted-foreground">Загрузка типов встреч…</p>
           ) : null}
 
-          {typesError ? (
+          {meetingTypesResource.error ? (
             <p className="text-sm text-destructive" role="alert">
-              {typesError}
+              {meetingTypesResource.error}
             </p>
           ) : null}
 
-          {!isLoadingTypes && !typesError && meetingTypes.length === 0 ? (
+          {!meetingTypesResource.isLoading &&
+          !meetingTypesResource.error &&
+          meetingTypes.length === 0 ? (
             <p className="text-muted-foreground">Пока нет типов встреч.</p>
           ) : null}
 

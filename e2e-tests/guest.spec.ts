@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 function uniqueTitle(prefix: string): string {
   return `${prefix} ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -102,6 +103,52 @@ test('guest books a slot and sees it disappear from the list', async ({ page }) 
       .getByTestId('slot')
       .filter({ hasText: slotLabel }),
   ).toHaveCount(0)
+})
+
+test('guest sees a fresh slot list when the chosen slot was taken', async ({
+  page,
+  request,
+}) => {
+  const title = uniqueTitle('Конфликт')
+
+  const created = await request.post('/api/meeting-types', {
+    data: { title, description: 'Слот займут до отправки формы', durationMinutes: 30 },
+  })
+  expect(created.status()).toBe(201)
+  const meetingType = (await created.json()) as { id: string }
+
+  const slotsResponse = await request.get(
+    `/api/meeting-types/${meetingType.id}/slots`,
+  )
+  const slots = (await slotsResponse.json()) as { startsAt: string }[]
+  const startsAt = slots[0]?.startsAt
+  expect(startsAt).toBeTruthy()
+
+  await page.goto('/guest')
+  await page.getByRole('button', { name: new RegExp(title) }).click()
+  await expect(page.getByRole('heading', { name: 'Свободные слоты' })).toBeVisible()
+
+  const firstDay = page.getByTestId('slot-day').first()
+  const firstSlot = firstDay.getByTestId('slot').first()
+  const slotLabel = (await firstSlot.innerText()).trim()
+  await firstSlot.click()
+
+  const taken = await request.post('/api/bookings', {
+    data: {
+      meetingTypeId: meetingType.id,
+      startsAt,
+      guestName: 'Другой гость',
+      guestEmail: 'other@example.com',
+    },
+  })
+  expect(taken.status()).toBe(201)
+
+  await page.getByLabel('Имя').fill('Анна')
+  await page.getByLabel('Почта').fill('anna@example.com')
+  await page.getByRole('button', { name: 'Забронировать' }).click()
+
+  await expect(page.getByRole('heading', { name: 'Данные гостя' })).toHaveCount(0)
+  await expect(firstDay.getByTestId('slot').first()).not.toHaveText(slotLabel)
 })
 
 test('guest sees validation errors in the booking form', async ({ page }) => {

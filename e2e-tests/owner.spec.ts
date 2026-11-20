@@ -1,8 +1,15 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './fixtures'
 
 function uniqueTitle(prefix: string): string {
   return `${prefix} ${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
+
+test('owner sees an empty bookings state', async ({ page }) => {
+  await page.goto('/owner')
+
+  await expect(page.getByRole('heading', { name: 'Брони', exact: true })).toBeVisible()
+  await expect(page.getByText('Пока нет броней.')).toBeVisible()
+})
 
 test('owner creates a meeting type and sees it in the list', async ({ page }) => {
   await page.goto('/owner')
