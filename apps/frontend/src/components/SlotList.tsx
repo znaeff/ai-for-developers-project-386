@@ -30,8 +30,8 @@ function groupSlots(slots: Slot[]): SlotGroup[] {
 
 type SlotListProps = {
   slots: Slot[]
-  selectedStartsAt?: string
-  onSelect?: (slot: Slot) => void
+  selectedStartsAt: string | undefined
+  onSelect: (slot: Slot) => void
 }
 
 export function SlotList({ slots, selectedStartsAt, onSelect }: SlotListProps) {
@@ -67,7 +67,7 @@ export function SlotList({ slots, selectedStartsAt, onSelect }: SlotListProps) {
                         : 'border-border hover:bg-muted',
                     ].join(' ')}
                     data-testid="slot"
-                    onClick={() => onSelect?.(slot)}
+                    onClick={() => onSelect(slot)}
                     type="button"
                   >
                     {label}

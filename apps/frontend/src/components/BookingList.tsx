@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/button'
-import type { BookingListItem } from '@/lib/api'
+import type { Booking, MeetingType } from '@/lib/api'
 import { formatMoscowDay, formatMoscowTime } from '@/lib/format'
 
 type BookingListProps = {
-  bookings: BookingListItem[]
+  bookings: Booking[]
+  meetingTypes: MeetingType[]
   isLoading: boolean
   loadError: string | null
   onRefresh: () => void
@@ -11,10 +12,18 @@ type BookingListProps = {
 
 export function BookingList({
   bookings,
+  meetingTypes,
   isLoading,
   loadError,
   onRefresh,
 }: BookingListProps) {
+  function resolveMeetingTypeTitle(meetingTypeId: string): string {
+    return (
+      meetingTypes.find((meetingType) => meetingType.id === meetingTypeId)?.title ??
+      'Тип встречи'
+    )
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-4">
@@ -50,7 +59,9 @@ export function BookingList({
               key={booking.id}
             >
               <div className="flex items-baseline justify-between gap-4">
-                <h3 className="font-medium">{booking.meetingTypeTitle}</h3>
+                <h3 className="font-medium">
+                  {resolveMeetingTypeTitle(booking.meetingTypeId)}
+                </h3>
                 <span className="shrink-0 text-sm text-muted-foreground">
                   {formatMoscowDay(booking.startsAt)},{' '}
                   {formatMoscowTime(booking.startsAt)}

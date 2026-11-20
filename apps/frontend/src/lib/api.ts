@@ -21,10 +21,6 @@ export type Booking = {
   createdAt: string
 }
 
-export type BookingListItem = Booking & {
-  meetingTypeTitle: string
-}
-
 export type BookingInput = {
   meetingTypeId: string
   startsAt: string
@@ -85,7 +81,7 @@ export function listSlots(meetingTypeId: string): Promise<Slot[]> {
   return request(`/meeting-types/${encodeURIComponent(meetingTypeId)}/slots`)
 }
 
-export function listBookings(): Promise<BookingListItem[]> {
+export function listBookings(): Promise<Booking[]> {
   return request('/bookings')
 }
 

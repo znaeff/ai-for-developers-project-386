@@ -50,6 +50,7 @@ export type MeetingTypeStore = {
   list(): MeetingType[]
   find(id: string): MeetingType | undefined
   create(input: MeetingTypeInput): MeetingType
+  clear(): void
 }
 
 export function createMeetingTypeStore(): MeetingTypeStore {
@@ -66,6 +67,9 @@ export function createMeetingTypeStore(): MeetingTypeStore {
       const meetingType: MeetingType = { id: randomUUID(), ...input }
       meetingTypes.push(meetingType)
       return meetingType
+    },
+    clear() {
+      meetingTypes.length = 0
     },
   }
 }

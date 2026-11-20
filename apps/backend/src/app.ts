@@ -23,6 +23,7 @@ type ServerOptions = {
   staticDir?: string
   apiPrefix?: string
   now?: () => Date
+  allowTestReset?: boolean
 }
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -48,7 +49,7 @@ export function createServer(options: ServerOptions = {}): Server {
   const apiPrefix = options.apiPrefix?.replace(/\/+$/, '')
   const now = options.now ?? (() => new Date())
   const meetingTypes = createMeetingTypeStore()
-  const bookings = createBookingStore()
+  const bookings = createBookingStore(meetingTypes)
 
   return createHttpServer((request, response) => {
     void handleRequest(
@@ -59,6 +60,7 @@ export function createServer(options: ServerOptions = {}): Server {
       meetingTypes,
       bookings,
       now,
+      options.allowTestReset ?? false,
     )
   })
 }
@@ -71,6 +73,7 @@ async function handleRequest(
   meetingTypes: MeetingTypeStore,
   bookings: BookingStore,
   now: () => Date,
+  allowTestReset: boolean,
 ): Promise<void> {
   try {
     const url = new URL(request.url ?? '/', 'http://localhost')
@@ -86,6 +89,18 @@ async function handleRequest(
     if (request.method === 'GET' && pathname === '/reserve') {
       response.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' })
       response.end('Reserved')
+      return
+    }
+
+    if (
+      allowTestReset &&
+      request.method === 'POST' &&
+      pathname === '/__test__/reset'
+    ) {
+      meetingTypes.clear()
+      bookings.clear()
+      response.writeHead(204)
+      response.end()
       return
     }
 
@@ -119,24 +134,13 @@ async function handleRequest(
         return
       }
 
-      const busy = busyIntervals(
-        meetingType,
-        bookings.listByMeetingType(meetingType.id),
-      )
+      const busy = busyIntervals(bookings.list(), meetingTypes)
       sendJson(response, 200, generateSlots(meetingType, now(), busy))
       return
     }
 
     if (request.method === 'GET' && pathname === '/bookings') {
-      sendJson(
-        response,
-        200,
-        bookings.list().map((booking) => ({
-          ...booking,
-          meetingTypeTitle:
-            meetingTypes.find(booking.meetingTypeId)?.title ?? '',
-        })),
-      )
+      sendJson(response, 200, bookings.list())
       return
     }
 
@@ -159,9 +163,9 @@ async function handleRequest(
         return
       }
 
-      const reservation = bookings.reserve(meetingType, parsed.value, now())
-      if (!reservation.ok) {
-        if (reservation.reason === 'invalid-slot') {
+      const created = bookings.create(meetingType, parsed.value, now())
+      if (!created.ok) {
+        if (created.reason === 'invalid-slot') {
           sendJson(response, 400, { error: 'Выбранный слот недоступен' })
         } else {
           sendJson(response, 409, { error: 'Слот уже занят' })
@@ -169,7 +173,7 @@ async function handleRequest(
         return
       }
 
-      sendJson(response, 201, reservation.booking)
+      sendJson(response, 201, created.booking)
       return
     }
 

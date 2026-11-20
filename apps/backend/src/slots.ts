@@ -10,6 +10,13 @@ export type TimeInterval = {
   endsAtMs: number
 }
 
+export function intervalsOverlap(
+  left: TimeInterval,
+  right: TimeInterval,
+): boolean {
+  return left.startsAtMs < right.endsAtMs && right.startsAtMs < left.endsAtMs
+}
+
 const MOSCOW_OFFSET_MINUTES = 3 * 60
 const MOSCOW_OFFSET_MS = MOSCOW_OFFSET_MINUTES * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -53,12 +60,8 @@ export function generateSlots(
       }
 
       const endsAtMs = startsAtMs + meetingType.durationMinutes * 60 * 1000
-      if (
-        busy.some(
-          (interval) =>
-            startsAtMs < interval.endsAtMs && interval.startsAtMs < endsAtMs,
-        )
-      ) {
+      const candidate = { startsAtMs, endsAtMs }
+      if (busy.some((interval) => intervalsOverlap(candidate, interval))) {
         continue
       }
 

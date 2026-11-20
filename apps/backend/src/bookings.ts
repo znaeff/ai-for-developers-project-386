@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import type { MeetingType } from './meeting-types.js'
+import type { MeetingType, MeetingTypeStore } from './meeting-types.js'
 import {
   generateSlots,
+  intervalsOverlap,
   type TimeInterval,
 } from './slots.js'
 
@@ -67,26 +68,24 @@ export function parseBookingInput(input: unknown): BookingValidation {
   }
 }
 
-export type BookingReservation =
+export type BookingCreation =
   | { ok: true; booking: Booking }
   | { ok: false; reason: 'invalid-slot' | 'conflict' }
 
 export type BookingStore = {
   list(): Booking[]
-  listByMeetingType(meetingTypeId: string): Booking[]
-  reserve(
+  create(
     meetingType: MeetingType,
     input: BookingInput,
     now: Date,
-  ): BookingReservation
+  ): BookingCreation
+  clear(): void
 }
 
-export function createBookingStore(): BookingStore {
+export function createBookingStore(
+  meetingTypes: MeetingTypeStore,
+): BookingStore {
   const bookings: Booking[] = []
-
-  function listByMeetingType(meetingTypeId: string): Booking[] {
-    return bookings.filter((booking) => booking.meetingTypeId === meetingTypeId)
-  }
 
   return {
     list() {
@@ -94,8 +93,7 @@ export function createBookingStore(): BookingStore {
         (left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt),
       )
     },
-    listByMeetingType,
-    reserve(meetingType, input, now) {
+    create(meetingType, input, now) {
       // Everything below runs synchronously, so the availability check and the
       // insert cannot interleave with another request in this process.
       const startsAtMs = Date.parse(input.startsAt)
@@ -107,13 +105,9 @@ export function createBookingStore(): BookingStore {
       }
 
       const endsAtMs = startsAtMs + meetingType.durationMinutes * 60 * 1000
-      const busy = busyIntervals(meetingType, listByMeetingType(meetingType.id))
-      if (
-        busy.some(
-          (interval) =>
-            startsAtMs < interval.endsAtMs && interval.startsAtMs < endsAtMs,
-        )
-      ) {
+      const candidate = { startsAtMs, endsAtMs }
+      const busy = busyIntervals(bookings, meetingTypes)
+      if (busy.some((interval) => intervalsOverlap(candidate, interval))) {
         return { ok: false, reason: 'conflict' }
       }
 
@@ -128,17 +122,28 @@ export function createBookingStore(): BookingStore {
       bookings.push(booking)
       return { ok: true, booking }
     },
+    clear() {
+      bookings.length = 0
+    },
   }
 }
 
 export function busyIntervals(
-  meetingType: MeetingType,
   bookings: Booking[],
+  meetingTypes: MeetingTypeStore,
 ): TimeInterval[] {
-  const durationMs = meetingType.durationMinutes * 60 * 1000
+  return bookings.flatMap((booking) => {
+    const meetingType = meetingTypes.find(booking.meetingTypeId)
+    if (!meetingType) {
+      return []
+    }
 
-  return bookings.map((booking) => {
     const startsAtMs = Date.parse(booking.startsAt)
-    return { startsAtMs, endsAtMs: startsAtMs + durationMs }
+    return [
+      {
+        startsAtMs,
+        endsAtMs: startsAtMs + meetingType.durationMinutes * 60 * 1000,
+      },
+    ]
   })
 }

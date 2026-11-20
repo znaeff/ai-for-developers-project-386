@@ -9,6 +9,7 @@ let servers: Server[] = []
 async function startServer(options?: {
   apiPrefix?: string
   now?: () => Date
+  allowTestReset?: boolean
 }): Promise<AddressInfo> {
   const current = createServer(options)
   servers.push(current)
@@ -458,6 +459,57 @@ it('hides every slot that overlaps a 45-minute booking', async () => {
   expect(remainingStarts).toContain('2026-01-05T10:00:00+03:00')
 })
 
+it('hides slots of another meeting type that overlap a booking', async () => {
+  const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
+  const address = await startServer({ now: () => now })
+  const longType = await createMeetingType(address.port, {
+    title: 'Длинная встреча',
+    durationMinutes: 45,
+  })
+  const shortType = await createMeetingType(address.port, {
+    title: 'Короткая встреча',
+    durationMinutes: 30,
+  })
+
+  await bookSlot(address.port, {
+    meetingTypeId: longType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+
+  const slots = await getSlots(address.port, shortType.id)
+  const starts = slots.map((slot) => slot.startsAt)
+
+  expect(starts).not.toContain('2026-01-05T09:00:00+03:00')
+  expect(starts).not.toContain('2026-01-05T09:30:00+03:00')
+  expect(starts).toContain('2026-01-05T10:00:00+03:00')
+})
+
+it('returns 409 when a booking overlaps a booking of another meeting type', async () => {
+  const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
+  const address = await startServer({ now: () => now })
+  const longType = await createMeetingType(address.port, {
+    title: 'Длинная встреча',
+    durationMinutes: 45,
+  })
+  const shortType = await createMeetingType(address.port, {
+    title: 'Короткая встреча',
+    durationMinutes: 30,
+  })
+
+  await bookSlot(address.port, {
+    meetingTypeId: longType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+
+  const conflict = await bookSlot(address.port, {
+    meetingTypeId: shortType.id,
+    startsAt: '2026-01-05T09:30:00+03:00',
+  })
+
+  expect(conflict.status).toBe(409)
+  expect(conflict.body).toEqual({ error: expect.any(String) })
+})
+
 it('allows only one of two simultaneous bookings for the same slot', async () => {
   const now = new Date('2026-01-05T05:00:00Z')
   const address = await startServer({ now: () => now })
@@ -655,7 +707,7 @@ it('starts with an empty bookings list', async () => {
   expect(await response.json()).toEqual([])
 })
 
-it('lists a booking with its meeting type title and guest details', async () => {
+it('lists a booking with its meeting type and guest details', async () => {
   const now = new Date('2026-01-05T05:00:00Z')
   const address = await startServer({ now: () => now })
   const meetingType = await createMeetingType(address.port, {
@@ -676,12 +728,12 @@ it('lists a booking with its meeting type title and guest details', async () => 
   expect(bookings[0]).toEqual({
     id: created.body.id,
     meetingTypeId: meetingType.id,
-    meetingTypeTitle: 'Консультация',
     startsAt: '2026-01-05T09:00:00+03:00',
     guestName: 'Иван',
     guestEmail: 'ivan@example.com',
     createdAt: created.body.createdAt,
   })
+  expect(bookings[0]).not.toHaveProperty('meetingTypeTitle')
 })
 
 it('sorts bookings by start time across meeting types', async () => {
@@ -711,9 +763,9 @@ it('sorts bookings by start time across meeting types', async () => {
     '2026-01-05T09:00:00+03:00',
     '2026-01-05T10:00:00+03:00',
   ])
-  expect(bookings.map((booking) => booking.meetingTypeTitle)).toEqual([
-    'Ранняя встреча',
-    'Поздняя встреча',
+  expect(bookings.map((booking) => booking.meetingTypeId)).toEqual([
+    earlierType.id,
+    laterType.id,
   ])
 })
 
@@ -758,7 +810,11 @@ it('serves the bookings list under the production api prefix', async () => {
   const bookings = await getBookings(address.port, '/api')
 
   expect(bookings).toHaveLength(1)
-  expect(bookings[0]).toMatchObject({ meetingTypeTitle: 'Знакомство' })
+  expect(bookings[0]).toMatchObject({
+    meetingTypeId: meetingType.id,
+    guestName: 'Анна',
+  })
+  expect(bookings[0]).not.toHaveProperty('meetingTypeTitle')
 })
 
 it('serves booking creation under the production api prefix', async () => {
@@ -787,3 +843,45 @@ it('serves booking creation under the production api prefix', async () => {
   expect(response.status).toBe(201)
 })
 
+it('does not expose the test reset endpoint by default', async () => {
+  const address = await startServer()
+
+  const response = await fetch(
+    `http://127.0.0.1:${address.port}/__test__/reset`,
+    { method: 'POST' },
+  )
+
+  expect(response.status).toBe(404)
+})
+
+it('clears meeting types and bookings through the test reset endpoint', async () => {
+  const now = new Date('2026-01-05T05:00:00Z')
+  const address = await startServer({ now: () => now, allowTestReset: true })
+  const meetingType = await createMeetingType(address.port, { durationMinutes: 30 })
+
+  await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+
+  const reset = await fetch(`http://127.0.0.1:${address.port}/__test__/reset`, {
+    method: 'POST',
+  })
+
+  expect(reset.status).toBe(204)
+  expect(
+    await (await fetch(`http://127.0.0.1:${address.port}/meeting-types`)).json(),
+  ).toEqual([])
+  expect(await getBookings(address.port)).toEqual([])
+})
+
+it('serves the test reset endpoint under the production api prefix', async () => {
+  const address = await startServer({ apiPrefix: '/api', allowTestReset: true })
+
+  const response = await fetch(
+    `http://127.0.0.1:${address.port}/api/__test__/reset`,
+    { method: 'POST' },
+  )
+
+  expect(response.status).toBe(204)
+})
