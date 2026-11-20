@@ -13,7 +13,7 @@ test('role links open the guest and owner pages and return home', async ({ page 
 
   await page.getByRole('link', { name: 'Бронировать встречу' }).click()
   await expect(page).toHaveURL(/\/guest$/)
-  await expect(page.getByText('Страница в разработке')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Бронировать встречу' })).toBeVisible()
 
   await page.getByRole('link', { name: 'На главную' }).click()
   await expect(page).toHaveURL(/\/$/)

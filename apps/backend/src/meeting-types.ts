@@ -48,6 +48,7 @@ export function parseMeetingTypeInput(input: unknown): MeetingTypeValidation {
 
 export type MeetingTypeStore = {
   list(): MeetingType[]
+  find(id: string): MeetingType | undefined
   create(input: MeetingTypeInput): MeetingType
 }
 
@@ -57,6 +58,9 @@ export function createMeetingTypeStore(): MeetingTypeStore {
   return {
     list() {
       return [...meetingTypes]
+    },
+    find(id) {
+      return meetingTypes.find((meetingType) => meetingType.id === id)
     },
     create(input) {
       const meetingType: MeetingType = { id: randomUUID(), ...input }

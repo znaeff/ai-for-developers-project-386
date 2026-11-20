@@ -7,6 +7,11 @@ export type MeetingType = {
 
 export type MeetingTypeInput = Omit<MeetingType, 'id'>
 
+export type Slot = {
+  startsAt: string
+  endsAt: string
+}
+
 export class ApiError extends Error {
   readonly status: number
 
@@ -54,4 +59,8 @@ export function createMeetingType(input: MeetingTypeInput): Promise<MeetingType>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   })
+}
+
+export function listSlots(meetingTypeId: string): Promise<Slot[]> {
+  return request(`/meeting-types/${encodeURIComponent(meetingTypeId)}/slots`)
 }
