@@ -1,5 +1,7 @@
 # API-контракт
 
+Машинный контракт описан в `contracts/main.tsp` и генерируется в `contracts/openapi/openapi.json`; клиентский SDK генерируется в `apps/frontend/src/api/generated`. Этот ADR фиксирует rationale и правила, а не заменяет TypeSpec-контракт.
+
 Бэкенд — единственный источник Типов встреч и Броней; Брони хранятся в памяти процесса и сбрасываются при рестарте. Все ответы API, кроме служебного `GET /reserve`, отдаются как JSON с `Content-Type: application/json; charset=utf-8`.
 
 ## Эндпоинты

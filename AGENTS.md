@@ -3,7 +3,7 @@
 ## Toolchain
 
 - `mise.toml` pins **both Node 22 and pnpm 12.18.0**. Run `mise install` first and use `mise exec -- <cmd>` (or a `mise run` task); a globally installed pnpm/Node may differ.
-- The verification gate is `mise run check` — `pnpm lint` → `pnpm typecheck` → `pnpm test`, strictly in that order (`mise.toml`). Run it before finishing a change; CI runs the same command after `pnpm install --frozen-lockfile`.
+- The verification gate is `mise run check`: `pnpm generate:check` → `pnpm lint` → `pnpm typecheck` → `pnpm test` → `pnpm test:e2e`, strictly in that order (`mise.toml`). Run it before finishing a change; CI runs the same command after `pnpm install --frozen-lockfile` and Playwright browser installation. Use `mise run check:fast` for the subset without generation and e2e.
 - Focused checks: `mise exec -- pnpm --filter @app/backend test -- src/app.test.ts`, `mise exec -- pnpm --filter @app/backend typecheck`, `mise exec -- pnpm --filter @app/frontend typecheck`.
 
 ## Layout and wiring
@@ -16,18 +16,27 @@
 - shadcn/ui artifacts are `apps/frontend/components.json`, `src/components/ui/button.tsx`, `src/lib/utils.ts`. Dependencies `shadcn`, `cn`, `radix-ui`, `tw-animate-css`, `@fontsource-variable/geist` are deliberate (CSS imports in `src/index.css`), not unused cruft.
 - The `@/*` alias is defined in both `vite.config.ts` and `tsconfig.json`; `tsconfig.json` intentionally omits `baseUrl` (deprecated in TypeScript 6).
 - `Dockerfile` is multi-stage: Node 22 + Corepack/pnpm build the workspace, the runtime stage contains only `apps/backend/dist`, `apps/frontend/dist`, and minimal `package.json` files. Build and run with `mise run docker:build` and `mise run docker:run`; see `docs/adr/0002-docker-image.md`.
+- The API contract source is `contracts/main.tsp`. `mise run generate` emits `contracts/openapi/openapi.json` and the TypeScript SDK in `apps/frontend/src/api/generated`.
+
+## Generated artifacts
+
+- `contracts/openapi/**` and `apps/frontend/src/api/generated/**` are generated. Never edit them manually.
+- Change `contracts/main.tsp`, run `mise run generate`, and commit both the source and the regenerated output.
+- `mise run check` regenerates and fails if the committed generated files differ.
+- There is no server generator: the backend uses raw `node:http`, so handlers are maintained manually and covered by `apps/backend/src/contract.test.ts` plus HTTP tests.
 
 ## Tests and CI
 
 - Vitest exists only in the backend. Tests start the server in-process on port 0 and close it in `afterEach` — no running backend, fixtures, or external services are required.
 - `POST /__test__/reset` (through Vite: `/api/__test__/reset`) clears meeting types and bookings and returns `204`. It exists only when `createServer({ allowTestReset: true })` is used; `index.ts` enables it for `E2E_RESET=1`.
-- Playwright e2e tests live in `e2e-tests/` with the root `playwright.config.ts`. They run against the real Vite dev server and a real backend, both started via `webServer` (the backend with `E2E_RESET=1`). Tests run with `workers: 1` and `fullyParallel: false`, and `e2e-tests/fixtures.ts` resets backend state before each test; run them with `mise run test:e2e` (separate from `mise run check`).
+- Playwright e2e tests live in `e2e-tests/` with the root `playwright.config.ts`. They run against the real Vite dev server and a real backend, both started via `webServer` (the backend with `E2E_RESET=1`). Tests run with `workers: 1` and `fullyParallel: false`, and `e2e-tests/fixtures.ts` resets backend state before each test. They are part of `mise run check`; use `mise run test:e2e` for a focused run.
 - `.github/workflows/hexlet-check.yml` is auto-generated: do not edit, rename, or delete it (see `.github/workflows/README.md`). Hexlet checks run on every push.
-- `.github/workflows/ci.yml` mirrors the local gate on push and pull request; keep it in sync if check steps change. `.github/workflows/playwright.yml` runs e2e separately on the same triggers. `.github/workflows/docker.yml` builds the image and smoke-tests a running container.
+- `.github/workflows/ci.yml` mirrors the local gate on push and pull request; keep it in sync if check steps change. `.github/workflows/docker.yml` builds the image and smoke-tests a running container. `.github/workflows/release-please.yml` runs on `main` and opens release PRs from Conventional Commits.
 
 ## Conventions
 
-- Commit messages follow Conventional Commits: `<type>(<scope>): <description>`. Scope is optional; use `api`, `backend`, `frontend`, `build`, `docker`, or `deps` when useful.
+- Commit messages follow Conventional Commits: `<type>(<scope>): <description>`. Scope is optional; use `api`, `backend`, `frontend`, `build`, `docker`, `ci`, or `deps` when useful.
+- Every implementation commit references its driving GitHub issue in the subject, for example `feat(api): add TypeSpec contract and SDK (#20)`.
 - Types: `feat`, `fix`, `refactor`, `test`, `docs`, `style`, `build`, `ci`, `chore`. Use `build(deps)` for dependency updates; `style` means code formatting, not UI styling.
 
 ## Agent skills

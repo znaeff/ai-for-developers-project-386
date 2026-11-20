@@ -2,8 +2,22 @@
 node = "22"
 pnpm = "12.18.0"
 
+[tasks."generate"]
+description = "Сгенерировать OpenAPI и клиентский SDK из TypeSpec"
+run = "pnpm generate"
+
 [tasks.check]
-description = "Линтер, проверка типов и тесты бэкенда"
+description = "Полная проверка: генерация, lint, типы, тесты и e2e"
+run = [
+  "pnpm generate:check",
+  "pnpm lint",
+  "pnpm typecheck",
+  "pnpm test",
+  "pnpm test:e2e",
+]
+
+[tasks."check:fast"]
+description = "Быстрая проверка без генерации и e2e"
 run = ["pnpm lint", "pnpm typecheck", "pnpm test"]
 
 [tasks."test:e2e"]
