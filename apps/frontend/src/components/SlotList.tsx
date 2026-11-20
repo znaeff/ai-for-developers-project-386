@@ -30,9 +30,11 @@ function groupSlots(slots: Slot[]): SlotGroup[] {
 
 type SlotListProps = {
   slots: Slot[]
+  selectedStartsAt?: string
+  onSelect?: (slot: Slot) => void
 }
 
-export function SlotList({ slots }: SlotListProps) {
+export function SlotList({ slots, selectedStartsAt, onSelect }: SlotListProps) {
   const groups = groupSlots(slots)
 
   return (
@@ -50,15 +52,29 @@ export function SlotList({ slots }: SlotListProps) {
             {group.label}
           </h3>
           <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {group.slots.map((slot) => (
-              <li
-                className="rounded-md border border-border px-2 py-1.5 text-center text-sm tabular-nums"
-                data-testid="slot"
-                key={slot.startsAt}
-              >
-                {formatMoscowTime(slot.startsAt)}–{formatMoscowTime(slot.endsAt)}
-              </li>
-            ))}
+            {group.slots.map((slot) => {
+              const isSelected = selectedStartsAt === slot.startsAt
+              const label = `${formatMoscowTime(slot.startsAt)}–${formatMoscowTime(slot.endsAt)}`
+
+              return (
+                <li key={slot.startsAt}>
+                  <button
+                    aria-pressed={isSelected}
+                    className={[
+                      'w-full rounded-md border px-2 py-1.5 text-center text-sm tabular-nums transition-colors',
+                      isSelected
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border hover:bg-muted',
+                    ].join(' ')}
+                    data-testid="slot"
+                    onClick={() => onSelect?.(slot)}
+                    type="button"
+                  >
+                    {label}
+                  </button>
+                </li>
+              )
+            })}
           </ul>
         </section>
       ))}

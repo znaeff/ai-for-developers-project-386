@@ -44,6 +44,36 @@ async function getSlots(
   return (await response.json()) as { startsAt: string; endsAt: string }[]
 }
 
+async function bookSlot(
+  port: number,
+  input: {
+    meetingTypeId: string
+    startsAt: string
+    guestName?: string
+    guestEmail?: string
+  },
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const response = await fetch(`http://127.0.0.1:${port}/bookings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      guestName: input.guestName ?? 'Анна',
+      guestEmail: input.guestEmail ?? 'anna@example.com',
+      ...input,
+    }),
+  })
+
+  const text = await response.text()
+  let body: Record<string, unknown>
+  try {
+    body = JSON.parse(text) as Record<string, unknown>
+  } catch {
+    body = { raw: text }
+  }
+
+  return { status: response.status, body }
+}
+
 afterEach(async () => {
   const current = servers
   servers = []
@@ -352,3 +382,280 @@ it('serves slots under the production api prefix', async () => {
   expect(response.status).toBe(200)
   expect(slots[0]?.startsAt).toBe('2026-01-05T09:00:00+03:00')
 })
+
+it('creates a booking for an available slot', async () => {
+  const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
+  const address = await startServer({ now: () => now })
+  const meetingType = await createMeetingType(address.port, { durationMinutes: 30 })
+
+  const { status, body } = await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+    guestName: '  Анна  ',
+    guestEmail: '  anna@example.com ',
+  })
+
+  expect(status).toBe(201)
+  expect(body).toMatchObject({
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+    guestName: 'Анна',
+    guestEmail: 'anna@example.com',
+  })
+  expect(body.id).toEqual(expect.any(String))
+  expect(body.createdAt).toEqual(expect.any(String))
+  expect(Number.isNaN(Date.parse(body.createdAt as string))).toBe(false)
+})
+
+it('hides a booked slot from the available slots', async () => {
+  const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
+  const address = await startServer({ now: () => now })
+  const meetingType = await createMeetingType(address.port, { durationMinutes: 30 })
+  const before = await getSlots(address.port, meetingType.id)
+
+  await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+
+  const after = await getSlots(address.port, meetingType.id)
+
+  expect(after).toHaveLength(before.length - 1)
+  expect(after.map((slot) => slot.startsAt)).not.toContain('2026-01-05T09:00:00+03:00')
+  expect(after.map((slot) => slot.startsAt)).toContain('2026-01-05T09:30:00+03:00')
+})
+
+it('hides every slot that overlaps a 45-minute booking', async () => {
+  const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
+  const address = await startServer({ now: () => now })
+  const meetingType = await createMeetingType(address.port, { durationMinutes: 45 })
+  const before = await getSlots(address.port, meetingType.id)
+
+  await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+
+  const after = await getSlots(address.port, meetingType.id)
+  const remainingStarts = after.map((slot) => slot.startsAt)
+
+  expect(after).toHaveLength(before.length - 2)
+  expect(remainingStarts).not.toContain('2026-01-05T09:00:00+03:00')
+  expect(remainingStarts).not.toContain('2026-01-05T09:30:00+03:00')
+  expect(remainingStarts).toContain('2026-01-05T10:00:00+03:00')
+})
+
+it('allows only one of two simultaneous bookings for the same slot', async () => {
+  const now = new Date('2026-01-05T05:00:00Z')
+  const address = await startServer({ now: () => now })
+  const meetingType = await createMeetingType(address.port, { durationMinutes: 30 })
+
+  const results = await Promise.all([
+    bookSlot(address.port, {
+      meetingTypeId: meetingType.id,
+      startsAt: '2026-01-05T09:00:00+03:00',
+    }),
+    bookSlot(address.port, {
+      meetingTypeId: meetingType.id,
+      startsAt: '2026-01-05T09:00:00+03:00',
+    }),
+  ])
+
+  expect(results.map((result) => result.status).sort()).toEqual([201, 409])
+})
+
+it('returns 409 when the slot is already booked', async () => {
+  const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
+  const address = await startServer({ now: () => now })
+  const meetingType = await createMeetingType(address.port, { durationMinutes: 30 })
+  const first = await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+
+  const second = await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+
+  expect(first.status).toBe(201)
+  expect(second.status).toBe(409)
+  expect(second.body).toEqual({ error: expect.any(String) })
+})
+
+it('returns 409 when the slot overlaps an existing booking', async () => {
+  const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
+  const address = await startServer({ now: () => now })
+  const meetingType = await createMeetingType(address.port, { durationMinutes: 45 })
+
+  await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+
+  const overlapping = await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:30:00+03:00',
+  })
+
+  expect(overlapping.status).toBe(409)
+  expect(overlapping.body).toEqual({ error: expect.any(String) })
+})
+
+it('does not create a second booking after a conflict', async () => {
+  const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
+  const address = await startServer({ now: () => now })
+  const meetingType = await createMeetingType(address.port, { durationMinutes: 45 })
+  const before = await getSlots(address.port, meetingType.id)
+
+  await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+  const afterFirst = await getSlots(address.port, meetingType.id)
+
+  await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+  const afterConflict = await getSlots(address.port, meetingType.id)
+
+  expect(afterFirst).toHaveLength(before.length - 2)
+  expect(afterConflict).toEqual(afterFirst)
+})
+
+it('rejects a booking with an empty guest name', async () => {
+  const now = new Date('2026-01-05T05:00:00Z')
+  const address = await startServer({ now: () => now })
+  const meetingType = await createMeetingType(address.port, { durationMinutes: 30 })
+
+  const { status, body } = await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+    guestName: '   ',
+  })
+
+  expect(status).toBe(400)
+  expect(body).toEqual({ error: expect.any(String) })
+})
+
+it.each(['', 'anna', 'anna@', 'anna@example', '@example.com'])(
+  'rejects the invalid guest email %j',
+  async (guestEmail) => {
+    const now = new Date('2026-01-05T05:00:00Z')
+    const address = await startServer({ now: () => now })
+    const meetingType = await createMeetingType(address.port, { durationMinutes: 30 })
+
+    const { status, body } = await bookSlot(address.port, {
+      meetingTypeId: meetingType.id,
+      startsAt: '2026-01-05T09:00:00+03:00',
+      guestEmail,
+    })
+
+    expect(status).toBe(400)
+    expect(body).toEqual({ error: expect.any(String) })
+  },
+)
+
+it('rejects a booking without a meeting type or start time', async () => {
+  const now = new Date('2026-01-05T05:00:00Z')
+  const address = await startServer({ now: () => now })
+  const meetingType = await createMeetingType(address.port, { durationMinutes: 30 })
+
+  const withoutType = await bookSlot(address.port, {
+    meetingTypeId: '   ',
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+  const withoutStart = await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '',
+  })
+
+  expect(withoutType.status).toBe(400)
+  expect(withoutStart.status).toBe(400)
+})
+
+it('returns 404 when booking an unknown meeting type', async () => {
+  const now = new Date('2026-01-05T05:00:00Z')
+  const address = await startServer({ now: () => now })
+
+  const { status, body } = await bookSlot(address.port, {
+    meetingTypeId: 'missing',
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+
+  expect(status).toBe(404)
+  expect(body).toEqual({ error: expect.any(String) })
+})
+
+it('rejects a booking outside the available slot grid', async () => {
+  const now = new Date('2026-01-05T05:00:00Z')
+  const address = await startServer({ now: () => now })
+  const meetingType = await createMeetingType(address.port, { durationMinutes: 30 })
+
+  const offGrid = await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:15:00+03:00',
+  })
+  const weekend = await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-10T09:00:00+03:00',
+  })
+  const past = await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T08:30:00+03:00',
+  })
+  const malformed = await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: 'not-a-date',
+  })
+
+  expect(offGrid.status).toBe(400)
+  expect(weekend.status).toBe(400)
+  expect(past.status).toBe(400)
+  expect(malformed.status).toBe(400)
+})
+
+it('stores bookings per server instance', async () => {
+  const now = new Date('2026-01-05T05:00:00Z')
+  const first = await startServer({ now: () => now })
+  const meetingType = await createMeetingType(first.port, { durationMinutes: 30 })
+
+  await bookSlot(first.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+
+  const second = await startServer({ now: () => now })
+  const secondType = await createMeetingType(second.port, { durationMinutes: 30 })
+  const slots = await getSlots(second.port, secondType.id)
+
+  expect(slots[0]?.startsAt).toBe('2026-01-05T09:00:00+03:00')
+})
+
+it('serves booking creation under the production api prefix', async () => {
+  const now = new Date('2026-01-05T05:00:00Z')
+  const address = await startServer({ apiPrefix: '/api', now: () => now })
+  const baseUrl = `http://127.0.0.1:${address.port}/api`
+
+  const created = await fetch(`${baseUrl}/meeting-types`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: 'Знакомство', durationMinutes: 30 }),
+  })
+  const meetingType = (await created.json()) as MeetingType
+
+  const response = await fetch(`${baseUrl}/bookings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      meetingTypeId: meetingType.id,
+      startsAt: '2026-01-05T09:00:00+03:00',
+      guestName: 'Анна',
+      guestEmail: 'anna@example.com',
+    }),
+  })
+
+  expect(response.status).toBe(201)
+})
+

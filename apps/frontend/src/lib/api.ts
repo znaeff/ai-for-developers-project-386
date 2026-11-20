@@ -12,6 +12,22 @@ export type Slot = {
   endsAt: string
 }
 
+export type Booking = {
+  id: string
+  meetingTypeId: string
+  startsAt: string
+  guestName: string
+  guestEmail: string
+  createdAt: string
+}
+
+export type BookingInput = {
+  meetingTypeId: string
+  startsAt: string
+  guestName: string
+  guestEmail: string
+}
+
 export class ApiError extends Error {
   readonly status: number
 
@@ -63,4 +79,12 @@ export function createMeetingType(input: MeetingTypeInput): Promise<MeetingType>
 
 export function listSlots(meetingTypeId: string): Promise<Slot[]> {
   return request(`/meeting-types/${encodeURIComponent(meetingTypeId)}/slots`)
+}
+
+export function createBooking(input: BookingInput): Promise<Booking> {
+  return request('/bookings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
 }
