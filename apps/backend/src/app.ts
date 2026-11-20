@@ -127,6 +127,19 @@ async function handleRequest(
       return
     }
 
+    if (request.method === 'GET' && pathname === '/bookings') {
+      sendJson(
+        response,
+        200,
+        bookings.list().map((booking) => ({
+          ...booking,
+          meetingTypeTitle:
+            meetingTypes.find(booking.meetingTypeId)?.title ?? '',
+        })),
+      )
+      return
+    }
+
     if (request.method === 'POST' && pathname === '/bookings') {
       const body = await readJsonBody(request)
       if (!body.ok) {

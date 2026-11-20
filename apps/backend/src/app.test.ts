@@ -18,7 +18,11 @@ async function startServer(options?: {
 
 async function createMeetingType(
   port: number,
-  input: { title?: string; description?: string; durationMinutes: number },
+  input: {
+    title?: string
+    description?: string
+    durationMinutes: number
+  },
 ): Promise<MeetingType> {
   const response = await fetch(`http://127.0.0.1:${port}/meeting-types`, {
     method: 'POST',
@@ -42,6 +46,15 @@ async function getSlots(
   )
 
   return (await response.json()) as { startsAt: string; endsAt: string }[]
+}
+
+async function getBookings(
+  port: number,
+  prefix = '',
+): Promise<Record<string, unknown>[]> {
+  const response = await fetch(`http://127.0.0.1:${port}${prefix}/bookings`)
+
+  return (await response.json()) as Record<string, unknown>[]
 }
 
 async function bookSlot(
@@ -631,6 +644,121 @@ it('stores bookings per server instance', async () => {
   const slots = await getSlots(second.port, secondType.id)
 
   expect(slots[0]?.startsAt).toBe('2026-01-05T09:00:00+03:00')
+})
+
+it('starts with an empty bookings list', async () => {
+  const address = await startServer()
+  const response = await fetch(`http://127.0.0.1:${address.port}/bookings`)
+
+  expect(response.status).toBe(200)
+  expect(response.headers.get('content-type')).toContain('application/json')
+  expect(await response.json()).toEqual([])
+})
+
+it('lists a booking with its meeting type title and guest details', async () => {
+  const now = new Date('2026-01-05T05:00:00Z')
+  const address = await startServer({ now: () => now })
+  const meetingType = await createMeetingType(address.port, {
+    title: 'Консультация',
+    durationMinutes: 30,
+  })
+
+  const created = await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+    guestName: 'Иван',
+    guestEmail: 'ivan@example.com',
+  })
+
+  const bookings = await getBookings(address.port)
+
+  expect(bookings).toHaveLength(1)
+  expect(bookings[0]).toEqual({
+    id: created.body.id,
+    meetingTypeId: meetingType.id,
+    meetingTypeTitle: 'Консультация',
+    startsAt: '2026-01-05T09:00:00+03:00',
+    guestName: 'Иван',
+    guestEmail: 'ivan@example.com',
+    createdAt: created.body.createdAt,
+  })
+})
+
+it('sorts bookings by start time across meeting types', async () => {
+  const now = new Date('2026-01-05T05:00:00Z')
+  const address = await startServer({ now: () => now })
+  const laterType = await createMeetingType(address.port, {
+    title: 'Поздняя встреча',
+    durationMinutes: 30,
+  })
+  const earlierType = await createMeetingType(address.port, {
+    title: 'Ранняя встреча',
+    durationMinutes: 30,
+  })
+
+  await bookSlot(address.port, {
+    meetingTypeId: laterType.id,
+    startsAt: '2026-01-05T10:00:00+03:00',
+  })
+  await bookSlot(address.port, {
+    meetingTypeId: earlierType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+
+  const bookings = await getBookings(address.port)
+
+  expect(bookings.map((booking) => booking.startsAt)).toEqual([
+    '2026-01-05T09:00:00+03:00',
+    '2026-01-05T10:00:00+03:00',
+  ])
+  expect(bookings.map((booking) => booking.meetingTypeTitle)).toEqual([
+    'Ранняя встреча',
+    'Поздняя встреча',
+  ])
+})
+
+it('keeps bookings isolated between servers', async () => {
+  const now = new Date('2026-01-05T05:00:00Z')
+  const first = await startServer({ now: () => now })
+  const meetingType = await createMeetingType(first.port, { durationMinutes: 30 })
+
+  await bookSlot(first.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+
+  const second = await startServer({ now: () => now })
+
+  expect(await getBookings(second.port)).toEqual([])
+})
+
+it('serves the bookings list under the production api prefix', async () => {
+  const now = new Date('2026-01-05T05:00:00Z')
+  const address = await startServer({ apiPrefix: '/api', now: () => now })
+  const baseUrl = `http://127.0.0.1:${address.port}/api`
+
+  const created = await fetch(`${baseUrl}/meeting-types`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title: 'Знакомство', durationMinutes: 30 }),
+  })
+  const meetingType = (await created.json()) as MeetingType
+
+  await fetch(`${baseUrl}/bookings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      meetingTypeId: meetingType.id,
+      startsAt: '2026-01-05T09:00:00+03:00',
+      guestName: 'Анна',
+      guestEmail: 'anna@example.com',
+    }),
+  })
+
+  const bookings = await getBookings(address.port, '/api')
+
+  expect(bookings).toHaveLength(1)
+  expect(bookings[0]).toMatchObject({ meetingTypeTitle: 'Знакомство' })
 })
 
 it('serves booking creation under the production api prefix', async () => {
