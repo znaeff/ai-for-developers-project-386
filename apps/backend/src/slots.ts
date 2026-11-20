@@ -5,6 +5,11 @@ export type Slot = {
   endsAt: string
 }
 
+export type TimeInterval = {
+  startsAtMs: number
+  endsAtMs: number
+}
+
 const MOSCOW_OFFSET_MINUTES = 3 * 60
 const MOSCOW_OFFSET_MS = MOSCOW_OFFSET_MINUTES * 60 * 1000
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -13,7 +18,11 @@ const WORKDAY_START_MINUTES = 9 * 60
 const WORKDAY_END_MINUTES = 18 * 60
 const SLOT_STEP_MINUTES = 30
 
-export function generateSlots(meetingType: MeetingType, now: Date): Slot[] {
+export function generateSlots(
+  meetingType: MeetingType,
+  now: Date,
+  busy: TimeInterval[] = [],
+): Slot[] {
   const nowMs = now.getTime()
   const windowEndMs = nowMs + WINDOW_DAYS * DAY_MS
   const localNow = new Date(nowMs + MOSCOW_OFFSET_MS)
@@ -44,6 +53,15 @@ export function generateSlots(meetingType: MeetingType, now: Date): Slot[] {
       }
 
       const endsAtMs = startsAtMs + meetingType.durationMinutes * 60 * 1000
+      if (
+        busy.some(
+          (interval) =>
+            startsAtMs < interval.endsAtMs && interval.startsAtMs < endsAtMs,
+        )
+      ) {
+        continue
+      }
+
       slots.push({
         startsAt: formatMoscowIso(startsAtMs),
         endsAt: formatMoscowIso(endsAtMs),

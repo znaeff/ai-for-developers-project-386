@@ -7,6 +7,12 @@ import {
 } from 'node:http'
 import { extname, resolve, sep } from 'node:path'
 import {
+  busyIntervals,
+  createBookingStore,
+  parseBookingInput,
+  type BookingStore,
+} from './bookings.js'
+import {
   createMeetingTypeStore,
   parseMeetingTypeInput,
   type MeetingTypeStore,
@@ -42,9 +48,18 @@ export function createServer(options: ServerOptions = {}): Server {
   const apiPrefix = options.apiPrefix?.replace(/\/+$/, '')
   const now = options.now ?? (() => new Date())
   const meetingTypes = createMeetingTypeStore()
+  const bookings = createBookingStore()
 
   return createHttpServer((request, response) => {
-    void handleRequest(request, response, staticDir, apiPrefix, meetingTypes, now)
+    void handleRequest(
+      request,
+      response,
+      staticDir,
+      apiPrefix,
+      meetingTypes,
+      bookings,
+      now,
+    )
   })
 }
 
@@ -54,6 +69,7 @@ async function handleRequest(
   staticDir: string | undefined,
   apiPrefix: string | undefined,
   meetingTypes: MeetingTypeStore,
+  bookings: BookingStore,
   now: () => Date,
 ): Promise<void> {
   try {
@@ -103,7 +119,44 @@ async function handleRequest(
         return
       }
 
-      sendJson(response, 200, generateSlots(meetingType, now()))
+      const busy = busyIntervals(
+        meetingType,
+        bookings.listByMeetingType(meetingType.id),
+      )
+      sendJson(response, 200, generateSlots(meetingType, now(), busy))
+      return
+    }
+
+    if (request.method === 'POST' && pathname === '/bookings') {
+      const body = await readJsonBody(request)
+      if (!body.ok) {
+        sendJson(response, 400, { error: body.error })
+        return
+      }
+
+      const parsed = parseBookingInput(body.value)
+      if (!parsed.ok) {
+        sendJson(response, 400, { error: parsed.error })
+        return
+      }
+
+      const meetingType = meetingTypes.find(parsed.value.meetingTypeId)
+      if (!meetingType) {
+        sendJson(response, 404, { error: 'Тип встречи не найден' })
+        return
+      }
+
+      const reservation = bookings.reserve(meetingType, parsed.value, now())
+      if (!reservation.ok) {
+        if (reservation.reason === 'invalid-slot') {
+          sendJson(response, 400, { error: 'Выбранный слот недоступен' })
+        } else {
+          sendJson(response, 409, { error: 'Слот уже занят' })
+        }
+        return
+      }
+
+      sendJson(response, 201, reservation.booking)
       return
     }
 

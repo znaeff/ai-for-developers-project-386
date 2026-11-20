@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
+import { BookingConfirmation } from '@/components/BookingConfirmation'
+import { BookingForm } from '@/components/BookingForm'
 import { PageLayout } from '@/components/PageLayout'
 import { SlotList } from '@/components/SlotList'
 import { Button } from '@/components/ui/button'
 import {
   listMeetingTypes,
   listSlots,
+  type Booking,
   type MeetingType,
   type Slot,
 } from '@/lib/api'
@@ -18,6 +21,9 @@ export function GuestPage() {
   const [slots, setSlots] = useState<Slot[]>([])
   const [isLoadingSlots, setIsLoadingSlots] = useState(false)
   const [slotsError, setSlotsError] = useState<string | null>(null)
+  const [slotsVersion, setSlotsVersion] = useState(0)
+  const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null)
+  const [booking, setBooking] = useState<Booking | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -72,19 +78,34 @@ export function GuestPage() {
     return () => {
       cancelled = true
     }
-  }, [selectedType])
+  }, [selectedType, slotsVersion])
 
   function selectMeetingType(meetingType: MeetingType) {
     setSelectedType(meetingType)
     setSlots([])
     setSlotsError(null)
     setIsLoadingSlots(true)
+    setSelectedSlot(null)
+    setBooking(null)
   }
 
   function returnToMeetingTypes() {
     setSelectedType(null)
     setSlots([])
     setSlotsError(null)
+    setSelectedSlot(null)
+    setBooking(null)
+  }
+
+  function selectSlot(slot: Slot) {
+    setSelectedSlot(slot)
+    setBooking(null)
+  }
+
+  function handleBooked(created: Booking) {
+    setBooking(created)
+    setSelectedSlot(null)
+    setSlotsVersion((version) => version + 1)
   }
 
   return (
@@ -117,6 +138,19 @@ export function GuestPage() {
               </p>
             </div>
 
+            {booking ? (
+              <BookingConfirmation booking={booking} meetingType={selectedType} />
+            ) : null}
+
+            {selectedSlot ? (
+              <BookingForm
+                meetingType={selectedType}
+                onBooked={handleBooked}
+                onCancel={() => setSelectedSlot(null)}
+                slot={selectedSlot}
+              />
+            ) : null}
+
             {isLoadingSlots ? (
               <p className="text-muted-foreground">Загрузка слотов…</p>
             ) : null}
@@ -131,7 +165,13 @@ export function GuestPage() {
               <p className="text-muted-foreground">Свободных слотов нет.</p>
             ) : null}
 
-            {slots.length > 0 ? <SlotList slots={slots} /> : null}
+            {slots.length > 0 ? (
+              <SlotList
+                onSelect={selectSlot}
+                selectedStartsAt={selectedSlot?.startsAt}
+                slots={slots}
+              />
+            ) : null}
           </div>
         </section>
       ) : (
