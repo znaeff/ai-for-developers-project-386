@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/znaeff/ai-for-developers-project-386/compare/calendar-booking-v0.2.1...calendar-booking-v0.3.0) (2026-11-20)
+
+
+### Features
+
+* **owner:** show only upcoming bookings ([#29](https://github.com/znaeff/ai-for-developers-project-386/issues/29)) ([c764634](https://github.com/znaeff/ai-for-developers-project-386/commit/c7646343b14778eb0584923803f297a9016b0b91))
+
 ## [0.2.1](https://github.com/znaeff/ai-for-developers-project-386/compare/calendar-booking-v0.2.0...calendar-booking-v0.2.1) (2026-11-20)
 
 
