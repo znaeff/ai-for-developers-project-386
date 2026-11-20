@@ -11,10 +11,12 @@ import {
   parseMeetingTypeInput,
   type MeetingTypeStore,
 } from './meeting-types.js'
+import { generateSlots } from './slots.js'
 
 type ServerOptions = {
   staticDir?: string
   apiPrefix?: string
+  now?: () => Date
 }
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -38,10 +40,11 @@ const CONTENT_TYPES: Record<string, string> = {
 export function createServer(options: ServerOptions = {}): Server {
   const staticDir = options.staticDir ? resolve(options.staticDir) : undefined
   const apiPrefix = options.apiPrefix?.replace(/\/+$/, '')
+  const now = options.now ?? (() => new Date())
   const meetingTypes = createMeetingTypeStore()
 
   return createHttpServer((request, response) => {
-    void handleRequest(request, response, staticDir, apiPrefix, meetingTypes)
+    void handleRequest(request, response, staticDir, apiPrefix, meetingTypes, now)
   })
 }
 
@@ -51,6 +54,7 @@ async function handleRequest(
   staticDir: string | undefined,
   apiPrefix: string | undefined,
   meetingTypes: MeetingTypeStore,
+  now: () => Date,
 ): Promise<void> {
   try {
     const url = new URL(request.url ?? '/', 'http://localhost')
@@ -88,6 +92,18 @@ async function handleRequest(
       }
 
       sendJson(response, 201, meetingTypes.create(parsed.value))
+      return
+    }
+
+    const slotsMatch = /^\/meeting-types\/([^/]+)\/slots$/.exec(pathname)
+    if (request.method === 'GET' && slotsMatch) {
+      const meetingType = meetingTypes.find(slotsMatch[1])
+      if (!meetingType) {
+        sendJson(response, 404, { error: 'Тип встречи не найден' })
+        return
+      }
+
+      sendJson(response, 200, generateSlots(meetingType, now()))
       return
     }
 
