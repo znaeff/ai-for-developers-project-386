@@ -6,6 +6,18 @@ pnpm = "12.18.0"
 description = "Линтер, проверка типов и дымовой тест бэкенда"
 run = ["pnpm lint", "pnpm typecheck", "pnpm test"]
 
+[tasks."test:e2e"]
+description = "End-to-end тесты фронтенда через Playwright"
+run = "pnpm test:e2e"
+
+[tasks."docker:build"]
+description = "Собрать Docker-образ приложения"
+run = "pnpm docker:build"
+
+[tasks."docker:run"]
+description = "Запустить приложение в Docker-контейнере"
+run = "pnpm docker:run"
+
 [tasks.dev]
 description = "Запуск бэкенда и фронтенда одновременно"
 run = "pnpm -r --parallel dev"

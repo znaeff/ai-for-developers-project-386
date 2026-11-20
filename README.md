@@ -21,9 +21,10 @@
 ## Стек
 
 - **Монорепозиторий:** pnpm workspaces (`apps/backend`, `apps/frontend`), версии инструментов управляются через [mise](https://mise.jdx.dev/) (Node.js 22 и pnpm указаны в `mise.toml`).
-- **Бэкенд:** TypeScript + Node.js 22, встроенный модуль `node:http`. Единственный метод `GET /reserve` возвращает текст `Reserved`.
+- **Бэкенд:** TypeScript + Node.js 22, встроенный модуль `node:http`. Метод `GET /reserve` возвращает текст `Reserved`; в контейнере сервер также раздаёт собранный фронтенд и понимает префикс `/api`.
 - **Фронтенд:** TypeScript, Vite, React, shadcn/ui на базе Tailwind CSS v4. Стартовая страница со ссылками на страницы гостя и владельца (пока заглушки), навигация без роутера.
-- **Тесты:** ESLint (линтер), `tsc --noEmit` (проверка типов), Vitest (дымовой тест доступности бэкенда). Все проверки объединяет задача `mise run check`.
+- **Docker:** multi-stage образ на Node 22; один контейнер отдаёт интерфейс и API на одном порту (`PORT`, по умолчанию `3000`).
+- **Тесты:** ESLint (линтер), `tsc --noEmit` (проверка типов), Vitest (дымовой тест доступности бэкенда), Playwright (end-to-end тесты фронтенда). Линтер, типы и юнит-тесты объединяет `mise run check`; e2e запускаются отдельно через `mise run test:e2e`.
 
 ## Установка
 
@@ -32,6 +33,23 @@ mise install   # установить Node.js 22 и pnpm из mise.toml
 pnpm install   # установить зависимости всех пакетов монорепозитория
 ```
 
+## Docker
+
+Образ содержит собранные бэкенд и фронтенд; для запуска контейнера не нужны локальные Node.js и pnpm.
+
+```bash
+mise run docker:build   # собрать образ calendar-booking:local
+mise run docker:run     # запустить контейнер на http://localhost:3000
+```
+
+Порт внутри контейнера задаётся переменной `PORT`. Например, на 8080:
+
+```bash
+docker run --rm -e PORT=8080 -p 8080:8080 calendar-booking:local
+```
+
+В CI отдельный workflow `.github/workflows/docker.yml` собирает образ, поднимает контейнер и проверяет `/` и `/api/reserve`.
+
 ## Тесты
 
 ```bash
@@ -39,6 +57,14 @@ mise run check
 ```
 
 Одна команда последовательно запускает линтер (`pnpm lint`), проверку типов (`pnpm typecheck`) и дымовой тест (`pnpm test`). Эти же проверки выполняются в GitHub Actions на каждый пуш и pull request (workflow `.github/workflows/ci.yml`). Тест сам поднимает бэкенд на свободном порту, проверяет, что `GET /reserve` отвечает кодом `200` и текстом `Reserved`, и закрывает сервер; запускать бэкенд отдельно не нужно.
+
+End-to-end тесты фронтенда запускаются отдельно:
+
+```bash
+mise run test:e2e
+```
+
+Playwright сам поднимает Vite на 5173 и проверяет реальные страницы; в CI это делает workflow `.github/workflows/playwright.yml`.
 
 ## Использование
 
@@ -51,5 +77,5 @@ mise run dev:frontend   # фронтенд: http://localhost:5173
 
 Бэкенд по-прежнему отвечает на `GET /reserve` текстом `Reserved`; кнопка `Check` с главной убрана. Запрос к `/api/reserve` всё ещё проксируется Vite на `http://localhost:3000/reserve`.
 
-Для production-сборки выполните `pnpm build`; собранный бэкенд запускается командой `pnpm --filter @app/backend start` (порт задаётся переменной `PORT`, по умолчанию `3000`).
+Для production-сборки выполните `pnpm build`; собранный бэкенд запускается командой `pnpm --filter @app/backend start` (порт задаётся переменной `PORT`, по умолчанию `3000`). Готовый способ собрать и запустить приложение — `mise run docker:build` и `mise run docker:run`.
 
