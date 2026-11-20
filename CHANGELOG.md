@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/znaeff/ai-for-developers-project-386/compare/calendar-booking-v0.2.0...calendar-booking-v0.2.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* **frontend:** show slot conflict message ([#25](https://github.com/znaeff/ai-for-developers-project-386/issues/25)) ([2bcdaaa](https://github.com/znaeff/ai-for-developers-project-386/commit/2bcdaaabc6b6faf856bbdc4a968a026af48b51b1))
+* show slot conflict message ([424062a](https://github.com/znaeff/ai-for-developers-project-386/commit/424062a480589e9865533bf72dffa77fc897f079))
+
 ## [0.2.0](https://github.com/znaeff/ai-for-developers-project-386/compare/calendar-booking-v0.1.0...calendar-booking-v0.2.0) (2026-11-20)
 
 
