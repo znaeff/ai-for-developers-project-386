@@ -6,10 +6,24 @@ import {
   type ServerResponse,
 } from 'node:http'
 import { extname, resolve, sep } from 'node:path'
+import {
+  busyIntervals,
+  createBookingStore,
+  parseBookingInput,
+  type BookingStore,
+} from './bookings.js'
+import {
+  createMeetingTypeStore,
+  parseMeetingTypeInput,
+  type MeetingTypeStore,
+} from './meeting-types.js'
+import { generateSlots } from './slots.js'
 
 type ServerOptions = {
   staticDir?: string
   apiPrefix?: string
+  now?: () => Date
+  allowTestReset?: boolean
 }
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -33,9 +47,21 @@ const CONTENT_TYPES: Record<string, string> = {
 export function createServer(options: ServerOptions = {}): Server {
   const staticDir = options.staticDir ? resolve(options.staticDir) : undefined
   const apiPrefix = options.apiPrefix?.replace(/\/+$/, '')
+  const now = options.now ?? (() => new Date())
+  const meetingTypes = createMeetingTypeStore()
+  const bookings = createBookingStore(meetingTypes)
 
   return createHttpServer((request, response) => {
-    void handleRequest(request, response, staticDir, apiPrefix)
+    void handleRequest(
+      request,
+      response,
+      staticDir,
+      apiPrefix,
+      meetingTypes,
+      bookings,
+      now,
+      options.allowTestReset ?? false,
+    )
   })
 }
 
@@ -44,6 +70,10 @@ async function handleRequest(
   response: ServerResponse,
   staticDir: string | undefined,
   apiPrefix: string | undefined,
+  meetingTypes: MeetingTypeStore,
+  bookings: BookingStore,
+  now: () => Date,
+  allowTestReset: boolean,
 ): Promise<void> {
   try {
     const url = new URL(request.url ?? '/', 'http://localhost')
@@ -59,6 +89,91 @@ async function handleRequest(
     if (request.method === 'GET' && pathname === '/reserve') {
       response.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' })
       response.end('Reserved')
+      return
+    }
+
+    if (
+      allowTestReset &&
+      request.method === 'POST' &&
+      pathname === '/__test__/reset'
+    ) {
+      meetingTypes.clear()
+      bookings.clear()
+      response.writeHead(204)
+      response.end()
+      return
+    }
+
+    if (request.method === 'GET' && pathname === '/meeting-types') {
+      sendJson(response, 200, meetingTypes.list())
+      return
+    }
+
+    if (request.method === 'POST' && pathname === '/meeting-types') {
+      const body = await readJsonBody(request)
+      if (!body.ok) {
+        sendJson(response, 400, { error: body.error })
+        return
+      }
+
+      const parsed = parseMeetingTypeInput(body.value)
+      if (!parsed.ok) {
+        sendJson(response, 400, { error: parsed.error })
+        return
+      }
+
+      sendJson(response, 201, meetingTypes.create(parsed.value))
+      return
+    }
+
+    const slotsMatch = /^\/meeting-types\/([^/]+)\/slots$/.exec(pathname)
+    if (request.method === 'GET' && slotsMatch) {
+      const meetingType = meetingTypes.find(slotsMatch[1])
+      if (!meetingType) {
+        sendJson(response, 404, { error: 'Тип встречи не найден' })
+        return
+      }
+
+      const busy = busyIntervals(bookings.list(), meetingTypes)
+      sendJson(response, 200, generateSlots(meetingType, now(), busy))
+      return
+    }
+
+    if (request.method === 'GET' && pathname === '/bookings') {
+      sendJson(response, 200, bookings.list())
+      return
+    }
+
+    if (request.method === 'POST' && pathname === '/bookings') {
+      const body = await readJsonBody(request)
+      if (!body.ok) {
+        sendJson(response, 400, { error: body.error })
+        return
+      }
+
+      const parsed = parseBookingInput(body.value)
+      if (!parsed.ok) {
+        sendJson(response, 400, { error: parsed.error })
+        return
+      }
+
+      const meetingType = meetingTypes.find(parsed.value.meetingTypeId)
+      if (!meetingType) {
+        sendJson(response, 404, { error: 'Тип встречи не найден' })
+        return
+      }
+
+      const created = bookings.create(meetingType, parsed.value, now())
+      if (!created.ok) {
+        if (created.reason === 'invalid-slot') {
+          sendJson(response, 400, { error: 'Выбранный слот недоступен' })
+        } else {
+          sendJson(response, 409, { error: 'Слот уже занят' })
+        }
+        return
+      }
+
+      sendJson(response, 201, created.booking)
       return
     }
 
@@ -119,6 +234,41 @@ async function serveStaticFile(
     response.end(headOnly ? undefined : body)
   } catch {
     sendNotFound(response)
+  }
+}
+
+function sendJson(response: ServerResponse, status: number, body: unknown): void {
+  response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' })
+  response.end(JSON.stringify(body))
+}
+
+type JsonBodyResult =
+  | { ok: true; value: unknown }
+  | { ok: false; error: string }
+
+const MAX_BODY_BYTES = 1024 * 1024
+
+async function readJsonBody(request: IncomingMessage): Promise<JsonBodyResult> {
+  const chunks: Buffer[] = []
+  let size = 0
+
+  try {
+    for await (const chunk of request) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string)
+      size += buffer.length
+      if (size > MAX_BODY_BYTES) {
+        return { ok: false, error: 'Тело запроса слишком большое' }
+      }
+      chunks.push(buffer)
+    }
+  } catch {
+    return { ok: false, error: 'Не удалось прочитать тело запроса' }
+  }
+
+  try {
+    return { ok: true, value: JSON.parse(Buffer.concat(chunks).toString('utf8')) }
+  } catch {
+    return { ok: false, error: 'Некорректный JSON в теле запроса' }
   }
 }
 
