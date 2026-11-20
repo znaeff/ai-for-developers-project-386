@@ -6,6 +6,11 @@ import {
   type ServerResponse,
 } from 'node:http'
 import { extname, resolve, sep } from 'node:path'
+import {
+  createMeetingTypeStore,
+  parseMeetingTypeInput,
+  type MeetingTypeStore,
+} from './meeting-types.js'
 
 type ServerOptions = {
   staticDir?: string
@@ -33,9 +38,10 @@ const CONTENT_TYPES: Record<string, string> = {
 export function createServer(options: ServerOptions = {}): Server {
   const staticDir = options.staticDir ? resolve(options.staticDir) : undefined
   const apiPrefix = options.apiPrefix?.replace(/\/+$/, '')
+  const meetingTypes = createMeetingTypeStore()
 
   return createHttpServer((request, response) => {
-    void handleRequest(request, response, staticDir, apiPrefix)
+    void handleRequest(request, response, staticDir, apiPrefix, meetingTypes)
   })
 }
 
@@ -44,6 +50,7 @@ async function handleRequest(
   response: ServerResponse,
   staticDir: string | undefined,
   apiPrefix: string | undefined,
+  meetingTypes: MeetingTypeStore,
 ): Promise<void> {
   try {
     const url = new URL(request.url ?? '/', 'http://localhost')
@@ -59,6 +66,28 @@ async function handleRequest(
     if (request.method === 'GET' && pathname === '/reserve') {
       response.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' })
       response.end('Reserved')
+      return
+    }
+
+    if (request.method === 'GET' && pathname === '/meeting-types') {
+      sendJson(response, 200, meetingTypes.list())
+      return
+    }
+
+    if (request.method === 'POST' && pathname === '/meeting-types') {
+      const body = await readJsonBody(request)
+      if (!body.ok) {
+        sendJson(response, 400, { error: body.error })
+        return
+      }
+
+      const parsed = parseMeetingTypeInput(body.value)
+      if (!parsed.ok) {
+        sendJson(response, 400, { error: parsed.error })
+        return
+      }
+
+      sendJson(response, 201, meetingTypes.create(parsed.value))
       return
     }
 
@@ -119,6 +148,41 @@ async function serveStaticFile(
     response.end(headOnly ? undefined : body)
   } catch {
     sendNotFound(response)
+  }
+}
+
+function sendJson(response: ServerResponse, status: number, body: unknown): void {
+  response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' })
+  response.end(JSON.stringify(body))
+}
+
+type JsonBodyResult =
+  | { ok: true; value: unknown }
+  | { ok: false; error: string }
+
+const MAX_BODY_BYTES = 1024 * 1024
+
+async function readJsonBody(request: IncomingMessage): Promise<JsonBodyResult> {
+  const chunks: Buffer[] = []
+  let size = 0
+
+  try {
+    for await (const chunk of request) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string)
+      size += buffer.length
+      if (size > MAX_BODY_BYTES) {
+        return { ok: false, error: 'Тело запроса слишком большое' }
+      }
+      chunks.push(buffer)
+    }
+  } catch {
+    return { ok: false, error: 'Не удалось прочитать тело запроса' }
+  }
+
+  try {
+    return { ok: true, value: JSON.parse(Buffer.concat(chunks).toString('utf8')) }
+  } catch {
+    return { ok: false, error: 'Некорректный JSON в теле запроса' }
   }
 }
 
