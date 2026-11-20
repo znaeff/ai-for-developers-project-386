@@ -14,11 +14,15 @@ import {
 import { formatDuration } from '@/lib/format'
 import { useApiResource } from '@/lib/useApiResource'
 
+const CONFLICT_MESSAGE =
+  'Этот слот уже занят. Пожалуйста, выберите другое время.'
+
 export function GuestPage() {
   const [selectedType, setSelectedType] = useState<MeetingType | null>(null)
   const [slotsReloadKey, setSlotsReloadKey] = useState(0)
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null)
   const [booking, setBooking] = useState<Booking | null>(null)
+  const [conflictMessage, setConflictMessage] = useState<string | null>(null)
 
   const meetingTypesResource = useApiResource(listMeetingTypes, [], {
     fallbackError: 'Не удалось загрузить типы встреч',
@@ -40,26 +44,31 @@ export function GuestPage() {
     setSelectedType(meetingType)
     setSelectedSlot(null)
     setBooking(null)
+    setConflictMessage(null)
   }
 
   function returnToMeetingTypes() {
     setSelectedType(null)
     setSelectedSlot(null)
     setBooking(null)
+    setConflictMessage(null)
   }
 
   function selectSlot(slot: Slot) {
     setSelectedSlot(slot)
     setBooking(null)
+    setConflictMessage(null)
   }
 
   function handleBooked(created: Booking) {
     setBooking(created)
     setSelectedSlot(null)
+    setConflictMessage(null)
     setSlotsReloadKey((key) => key + 1)
   }
 
   function handleConflict() {
+    setConflictMessage(CONFLICT_MESSAGE)
     setSelectedSlot(null)
     setSlotsReloadKey((key) => key + 1)
   }
@@ -93,6 +102,16 @@ export function GuestPage() {
                 Ближайшие 14 дней, время указано по Москве.
               </p>
             </div>
+
+            {conflictMessage ? (
+              <p
+                aria-live="assertive"
+                className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
+                role="alert"
+              >
+                {conflictMessage}
+              </p>
+            ) : null}
 
             {booking ? (
               <BookingConfirmation booking={booking} meetingType={selectedType} />
