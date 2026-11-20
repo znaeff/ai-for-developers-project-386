@@ -39,11 +39,19 @@ export default defineConfig({
     },
   ],
 
-  /* Run the Vite dev server before starting the tests */
-  webServer: {
-    command: 'pnpm --filter @app/frontend dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  /* Run the backend and Vite dev server before starting the tests */
+  webServer: [
+    {
+      command: 'pnpm --filter @app/backend dev',
+      url: 'http://localhost:3000/reserve',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
+      command: 'pnpm --filter @app/frontend dev',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+  ],
 });
