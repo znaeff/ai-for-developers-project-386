@@ -72,6 +72,7 @@ export type BookingReservation =
   | { ok: false; reason: 'invalid-slot' | 'conflict' }
 
 export type BookingStore = {
+  list(): Booking[]
   listByMeetingType(meetingTypeId: string): Booking[]
   reserve(
     meetingType: MeetingType,
@@ -88,6 +89,11 @@ export function createBookingStore(): BookingStore {
   }
 
   return {
+    list() {
+      return [...bookings].sort(
+        (left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt),
+      )
+    },
     listByMeetingType,
     reserve(meetingType, input, now) {
       // Everything below runs synchronously, so the availability check and the
