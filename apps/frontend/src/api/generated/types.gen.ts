@@ -45,7 +45,9 @@ export type Slot = {
 export type ListBookingsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        upcoming?: boolean;
+    };
     url: '/bookings';
 };
 

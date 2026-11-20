@@ -21,6 +21,7 @@
     "dev:backend": "pnpm --filter @app/backend dev",
     "dev:frontend": "pnpm --filter @app/frontend dev",
     "docker:build": "docker build -t calendar-booking:local .",
+    "docker:smoke": "node scripts/docker-smoke.mjs",
     "docker:run": "docker run --rm -p 3000:3000 calendar-booking:local"
   },
   "devDependencies": {

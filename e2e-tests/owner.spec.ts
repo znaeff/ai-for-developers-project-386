@@ -8,7 +8,7 @@ test('owner sees an empty bookings state', async ({ page }) => {
   await page.goto('/owner')
 
   await expect(page.getByRole('heading', { name: 'Брони', exact: true })).toBeVisible()
-  await expect(page.getByText('Пока нет броней.')).toBeVisible()
+  await expect(page.getByText('Пока нет предстоящих встреч.')).toBeVisible()
 })
 
 test('owner creates a meeting type and sees it in the list', async ({ page }) => {

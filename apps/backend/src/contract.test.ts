@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 type Operation = {
   operationId?: string
+  parameters?: Array<{ name?: string; in?: string; required?: boolean }>
   responses: Record<string, unknown>
 }
 
@@ -48,6 +49,18 @@ describe('generated OpenAPI contract', () => {
       )
     },
   )
+
+  it('exposes the upcoming query parameter for GET /bookings', () => {
+    expect(contract.paths['/bookings']?.get?.parameters).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          in: 'query',
+          name: 'upcoming',
+          required: false,
+        }),
+      ]),
+    )
+  })
 
   it.each([
     ['MeetingType', ['id', 'title', 'description', 'durationMinutes']],

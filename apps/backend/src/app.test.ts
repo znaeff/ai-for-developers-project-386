@@ -736,6 +736,30 @@ it('lists a booking with its meeting type and guest details', async () => {
   expect(bookings[0]).not.toHaveProperty('meetingTypeTitle')
 })
 
+it('lists only upcoming bookings when upcoming=true', async () => {
+  let now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
+  const address = await startServer({ now: () => now })
+  const meetingType = await createMeetingType(address.port, { durationMinutes: 30 })
+
+  await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+
+  const upcoming = await fetch(
+    `http://127.0.0.1:${address.port}/bookings?upcoming=true`,
+  )
+  expect(await upcoming.json()).toHaveLength(1)
+
+  now = new Date('2026-01-05T07:00:00Z') // Monday, 10:00 in Moscow
+
+  const afterStart = await fetch(
+    `http://127.0.0.1:${address.port}/bookings?upcoming=true`,
+  )
+  expect(await afterStart.json()).toEqual([])
+  expect(await getBookings(address.port)).toHaveLength(1)
+})
+
 it('sorts bookings by start time across meeting types', async () => {
   const now = new Date('2026-01-05T05:00:00Z')
   const address = await startServer({ now: () => now })

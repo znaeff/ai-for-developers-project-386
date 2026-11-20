@@ -140,7 +140,15 @@ async function handleRequest(
     }
 
     if (request.method === 'GET' && pathname === '/bookings') {
-      sendJson(response, 200, bookings.list())
+      const onlyUpcoming = url.searchParams.get('upcoming') === 'true'
+      const allBookings = bookings.list()
+      const upcomingBookings = onlyUpcoming
+        ? allBookings.filter(
+            (booking) => Date.parse(booking.startsAt) >= now().getTime(),
+          )
+        : allBookings
+
+      sendJson(response, 200, upcomingBookings)
       return
     }
 
