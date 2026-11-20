@@ -12,7 +12,7 @@
 - Backend: `src/index.ts` is the process entrypoint (`PORT`, default 3000); `src/app.ts` exports `createServer()` and is the seam imported by tests. No HTTP framework: only `GET /reserve` → `200 text/plain Reserved`, all other paths → 404.
 - Backend is ESM with `module: NodeNext`: local TS imports must keep the `.js` extension (`./app.js`) even though the file is `.ts`. Do not "fix" it to an extensionless import.
 - Backend tsconfigs are split: `tsconfig.json` is for typechecking and includes tests; `tsconfig.build.json` extends it and excludes `src/**/*.test.ts`. Keep that exclusion — otherwise compiled tests land in `dist/` and Vitest executes them twice.
-- Frontend dev server is Vite on 5173. It proxies `/api` → `http://localhost:3000` and strips the `/api` prefix, so the page calls `/api/reserve` and `Check` needs the backend running locally.
+- Frontend dev server is Vite on 5173. It proxies `/api` → `http://localhost:3000` and strips the `/api` prefix. The landing page links to `/guest` and `/owner` (both are stubs); navigation is handled by `window.location.pathname`, without a router.
 - shadcn/ui artifacts are `apps/frontend/components.json`, `src/components/ui/button.tsx`, `src/lib/utils.ts`. Dependencies `shadcn`, `cn`, `radix-ui`, `tw-animate-css`, `@fontsource-variable/geist` are deliberate (CSS imports in `src/index.css`), not unused cruft.
 - The `@/*` alias is defined in both `vite.config.ts` and `tsconfig.json`; `tsconfig.json` intentionally omits `baseUrl` (deprecated in TypeScript 6).
 
@@ -32,6 +32,10 @@
 ### Issue tracker
 
 Issues and specs for this repo live in GitHub Issues (`znaeff/ai-for-developers-project-386`). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Triage roles map to GitHub labels `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
