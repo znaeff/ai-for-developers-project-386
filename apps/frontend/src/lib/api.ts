@@ -78,7 +78,7 @@ export function listSlots(meetingTypeId: string): Promise<Slot[]> {
 }
 
 export function listBookings(): Promise<Booking[]> {
-  return unwrap(sdkListBookings())
+  return unwrap(sdkListBookings({ query: { upcoming: true } }))
 }
 
 export function createBooking(input: BookingInput): Promise<Booking> {

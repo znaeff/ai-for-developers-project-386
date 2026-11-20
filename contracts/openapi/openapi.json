@@ -9,7 +9,17 @@
     "/bookings": {
       "get": {
         "operationId": "listBookings",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "upcoming",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "explode": false
+          }
+        ],
         "responses": {
           "200": {
             "description": "The request has succeeded.",

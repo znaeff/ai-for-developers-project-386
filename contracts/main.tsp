@@ -91,7 +91,7 @@ interface Slots {
 interface Bookings {
   @operationId("listBookings")
   @get
-  list(): Booking[];
+  list(@query upcoming?: boolean): Booking[];
 
   @operationId("createBooking")
   @post

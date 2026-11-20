@@ -47,7 +47,7 @@ export function BookingList({
       ) : null}
 
       {!isLoading && !loadError && bookings.length === 0 ? (
-        <p className="text-muted-foreground">Пока нет броней.</p>
+        <p className="text-muted-foreground">Пока нет предстоящих встреч.</p>
       ) : null}
 
       {bookings.length > 0 ? (
