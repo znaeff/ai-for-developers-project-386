@@ -7,13 +7,15 @@ description = "Сгенерировать OpenAPI и клиентский SDK и
 run = "pnpm generate"
 
 [tasks.check]
-description = "Полная проверка: генерация, lint, типы, тесты и e2e"
+description = "Полная проверка: генерация, lint, типы, тесты, e2e и Docker"
 run = [
   "pnpm generate:check",
   "pnpm lint",
   "pnpm typecheck",
   "pnpm test",
   "pnpm test:e2e",
+  "pnpm docker:build",
+  "pnpm docker:smoke",
 ]
 
 [tasks."check:fast"]
@@ -27,6 +29,10 @@ run = "pnpm test:e2e"
 [tasks."docker:build"]
 description = "Собрать Docker-образ приложения"
 run = "pnpm docker:build"
+
+[tasks."docker:smoke"]
+description = "Проверить запущенный Docker-контейнер"
+run = "pnpm docker:smoke"
 
 [tasks."docker:run"]
 description = "Запустить приложение в Docker-контейнере"
