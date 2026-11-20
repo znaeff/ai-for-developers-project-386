@@ -148,6 +148,9 @@ test('guest sees a fresh slot list when the chosen slot was taken', async ({
   await page.getByRole('button', { name: 'Забронировать' }).click()
 
   await expect(page.getByRole('heading', { name: 'Данные гостя' })).toHaveCount(0)
+  await expect(page.getByRole('alert')).toContainText(
+    'Этот слот уже занят. Пожалуйста, выберите другое время.',
+  )
   await expect(firstDay.getByTestId('slot').first()).not.toHaveText(slotLabel)
 })
 
