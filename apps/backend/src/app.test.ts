@@ -204,6 +204,32 @@ it('keeps an empty description', async () => {
   expect(await response.json()).toMatchObject({ description: '' })
 })
 
+it('rejects a second meeting type with the same duration', async () => {
+  const address = await startServer()
+  await createMeetingType(address.port, { title: 'Первая', durationMinutes: 30 })
+
+  const duplicate = await fetch(
+    `http://127.0.0.1:${address.port}/meeting-types`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Вторая',
+        description: '',
+        durationMinutes: 30,
+      }),
+    },
+  )
+
+  expect(duplicate.status).toBe(409)
+  expect(await duplicate.json()).toEqual({ error: expect.any(String) })
+
+  await createMeetingType(address.port, { title: 'Третья', durationMinutes: 45 })
+
+  const listed = await fetch(`http://127.0.0.1:${address.port}/meeting-types`)
+  expect(await listed.json()).toHaveLength(2)
+})
+
 it('keeps meeting types isolated between servers', async () => {
   const first = await startServer()
   await fetch(`http://127.0.0.1:${first.port}/meeting-types`, {
@@ -796,7 +822,7 @@ it('sorts bookings by start time across meeting types', async () => {
   const address = await startServer({ now: () => now })
   const laterType = await createMeetingType(address.port, {
     title: 'Поздняя встреча',
-    durationMinutes: 30,
+    durationMinutes: 45,
   })
   const earlierType = await createMeetingType(address.port, {
     title: 'Ранняя встреча',

@@ -27,6 +27,25 @@ test('owner creates a meeting type and sees it in the list', async ({ page }) =>
   await expect(created).toContainText('45 минут')
 })
 
+test('owner sees an error for a duplicate duration', async ({ page }) => {
+  const firstTitle = uniqueTitle('Первая встреча')
+  const secondTitle = uniqueTitle('Вторая встреча')
+
+  await page.goto('/owner')
+  await page.getByLabel('Название').fill(firstTitle)
+  await page.getByLabel('Описание').fill('')
+  await page.getByLabel('Длительность, минут').selectOption('30')
+  await page.getByRole('button', { name: 'Создать тип встречи' }).click()
+  await expect(page.getByRole('listitem').filter({ hasText: firstTitle })).toBeVisible()
+
+  await page.getByLabel('Название').fill(secondTitle)
+  await page.getByLabel('Описание').fill('')
+  await page.getByLabel('Длительность, минут').selectOption('30')
+  await page.getByRole('button', { name: 'Создать тип встречи' }).click()
+
+  await expect(page.getByRole('alert')).toContainText('уже существует')
+})
+
 test('owner sees a new booking after opening the page', async ({
   context,
   page,

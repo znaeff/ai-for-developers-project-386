@@ -122,6 +122,10 @@ export type CreateMeetingTypeErrors = {
      * The server could not understand the request due to invalid syntax.
      */
     400: ErrorResponse;
+    /**
+     * The request conflicts with the current state of the server.
+     */
+    409: ErrorResponse;
 };
 
 export type CreateMeetingTypeError = CreateMeetingTypeErrors[keyof CreateMeetingTypeErrors];

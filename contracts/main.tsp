@@ -78,7 +78,8 @@ interface MeetingTypes {
         @statusCode statusCode: 201;
         @body body: MeetingType;
       }
-    | BadRequest;
+    | BadRequest
+    | Conflict;
 }
 
 @route("/meeting-types/{id}/slots")
