@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.0](https://github.com/znaeff/ai-for-developers-project-386/compare/calendar-booking-v0.6.0...calendar-booking-v0.7.0) (2026-11-21)
+
+
+### Features
+
+* **api:** add owner data cleanup ([#46](https://github.com/znaeff/ai-for-developers-project-386/issues/46)) ([791b599](https://github.com/znaeff/ai-for-developers-project-386/commit/791b5992330bb11f333c53b5712aa9d8796dd105))
+* clear owner data ([b08dde2](https://github.com/znaeff/ai-for-developers-project-386/commit/b08dde2adfecbe237d89605ee7f4d053c4acd4b6))
+* **deploy:** publish app on Render and document MCP ([#43](https://github.com/znaeff/ai-for-developers-project-386/issues/43)) ([dc5e707](https://github.com/znaeff/ai-for-developers-project-386/commit/dc5e707b396c0bb6370808540644e4777acea72b))
+* publish app on Render and document MCP ([646b6bf](https://github.com/znaeff/ai-for-developers-project-386/commit/646b6bff0f141bf58474acf65b298ce2c99c8f8a))
+
 ## [0.6.0](https://github.com/znaeff/ai-for-developers-project-386/compare/calendar-booking-v0.5.0...calendar-booking-v0.6.0) (2026-11-21)
 
 
