@@ -1,6 +1,8 @@
 # Календарь звонков
 
-Учебное приложение от Hexlet для бронирования встреч
+Учебное приложение от Hexlet для бронирования встреч.
+
+**Публичная версия:** [https://calendar-booking-lyk4.onrender.com](https://calendar-booking-lyk4.onrender.com)
 
 ## Роли
 
@@ -74,6 +76,51 @@ docker run --rm -e PORT=8080 -p 8080:8080 calendar-booking:local
 ```
 
 Docker build и контейнерный smoke входят в `mise run check`; отдельного Docker workflow больше нет.
+
+## Render
+
+Приложение развёрнуто как публичный Web Service `calendar-booking` в регионе Frankfurt на free-плане. Render собирает образ из корневого `Dockerfile`, запускает его командой из `CMD` и сам задаёт переменную окружения `PORT`; приложение слушает именно этот порт. Auto-deploy включён с ветки `main`. Free-план может засыпать после периода неактивности — первый запрос после простоя может занять несколько секунд.
+
+### Подключение Render MCP без секретов
+
+`opencode.json` уже содержит конфигурацию удалённого MCP-сервера:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "servers": {
+      "render": {
+        "type": "remote",
+        "url": "https://mcp.render.com/mcp",
+        "oauth": false,
+        "headers": {
+          "Authorization": "Bearer {env:RENDER_API_KEY}"
+        }
+      }
+    }
+  }
+}
+```
+
+Ключ хранится только в переменной окружения `RENDER_API_KEY`, в файлах репозитория его нет.
+
+1. Создайте API key в [Render Dashboard](https://dashboard.render.com/u/settings#api-keys).
+2. Экспортируйте его в окружении, из которого запускается OpenCode:
+   ```bash
+   export RENDER_API_KEY='ваш-ключ'
+   ```
+3. Если фоновый сервис OpenCode уже запущен, перезапустите его, чтобы он увидел новую переменную:
+   ```bash
+   opencode service restart
+   ```
+4. Проверьте подключение:
+   ```bash
+   opencode mcp list
+   ```
+   В выводе должно быть `render connected`.
+5. Убедитесь, что выбран нужный workspace: вызовите `list_workspaces` через MCP и уточните workspaceId, если workspace один.
+6. Не коммитьте ключ: `.env*` игнорируется git и Docker build context, в репозитории остаётся только `.env.example` с именем переменной. OpenCode не загружает `.env` автоматически — переменная должна быть реально экспортирована в окружении процесса.
 
 ## Тесты
 

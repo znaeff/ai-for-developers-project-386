@@ -5,6 +5,8 @@ dist
 .git
 .github
 .agents
+.env*
+!.env.example
 .vite
 coverage
 **/coverage
