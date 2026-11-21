@@ -93,6 +93,17 @@
         }
       }
     },
+    "/cleanup": {
+      "post": {
+        "operationId": "clearData",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": "There is no content to send for this request, but the headers may be useful. "
+          }
+        }
+      }
+    },
     "/meeting-types": {
       "get": {
         "operationId": "listMeetingTypes",

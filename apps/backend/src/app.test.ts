@@ -924,6 +924,79 @@ it('serves booking creation under the production api prefix', async () => {
   expect(response.status).toBe(201)
 })
 
+it('clears meeting types and bookings through the cleanup endpoint', async () => {
+  const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
+  const address = await startServer({ now: () => now })
+  const meetingType = await createMeetingType(address.port, { durationMinutes: 30 })
+
+  await bookSlot(address.port, {
+    meetingTypeId: meetingType.id,
+    startsAt: '2026-01-05T09:00:00+03:00',
+  })
+
+  expect(
+    await (await fetch(`http://127.0.0.1:${address.port}/meeting-types`)).json(),
+  ).not.toEqual([])
+  expect(await getBookings(address.port)).not.toEqual([])
+
+  const cleanup = await fetch(`http://127.0.0.1:${address.port}/cleanup`, {
+    method: 'POST',
+  })
+
+  expect(cleanup.status).toBe(204)
+  expect(
+    await (await fetch(`http://127.0.0.1:${address.port}/meeting-types`)).json(),
+  ).toEqual([])
+  expect(await getBookings(address.port)).toEqual([])
+})
+
+it('allows cleaning up an already empty server', async () => {
+  const address = await startServer()
+
+  const first = await fetch(`http://127.0.0.1:${address.port}/cleanup`, {
+    method: 'POST',
+  })
+  const second = await fetch(`http://127.0.0.1:${address.port}/cleanup`, {
+    method: 'POST',
+  })
+
+  expect(first.status).toBe(204)
+  expect(second.status).toBe(204)
+})
+
+it('serves the cleanup endpoint under the production api prefix', async () => {
+  const now = new Date('2026-01-05T05:00:00Z')
+  const address = await startServer({ apiPrefix: '/api', now: () => now })
+  const baseUrl = `http://127.0.0.1:${address.port}/api`
+  const created = await fetch(`${baseUrl}/meeting-types`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      title: 'Знакомство',
+      description: '',
+      durationMinutes: 30,
+    }),
+  })
+  const meetingType = (await created.json()) as { id: string }
+
+  await fetch(`${baseUrl}/bookings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      meetingTypeId: meetingType.id,
+      startsAt: '2026-01-05T09:00:00+03:00',
+      guestName: 'Анна',
+      guestEmail: 'anna@example.com',
+    }),
+  })
+
+  const cleanup = await fetch(`${baseUrl}/cleanup`, { method: 'POST' })
+
+  expect(cleanup.status).toBe(204)
+  expect(await (await fetch(`${baseUrl}/meeting-types`)).json()).toEqual([])
+  expect(await getBookings(address.port, '/api')).toEqual([])
+})
+
 it('does not expose the test reset endpoint by default', async () => {
   const address = await startServer()
 

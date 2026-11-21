@@ -92,6 +92,14 @@ async function handleRequest(
       return
     }
 
+    if (request.method === 'POST' && pathname === '/cleanup') {
+      meetingTypes.clear()
+      bookings.clear()
+      response.writeHead(204)
+      response.end()
+      return
+    }
+
     if (
       allowTestReset &&
       request.method === 'POST' &&

@@ -120,6 +120,60 @@ test('owner refreshes the booking list without reloading the page', async ({
   await expect(booking).toContainText(title)
 })
 
+test('owner clear button is disabled when there is no data', async ({ page }) => {
+  await page.goto('/owner')
+
+  await expect(page.getByText('Пока нет созданных типов встреч.')).toBeVisible()
+  await expect(page.getByText('Пока нет предстоящих встреч.')).toBeVisible()
+  await expect(page.getByTestId('clear-data')).toBeDisabled()
+})
+
+test('owner clears meeting types and bookings', async ({ page, request }) => {
+  const title = uniqueTitle('Очистка данных')
+  const guestEmail = `clear-${Date.now()}@example.com`
+
+  const created = await request.post('/api/meeting-types', {
+    data: { title, description: '', durationMinutes: 30 },
+  })
+  expect(created.status()).toBe(201)
+  const meetingType = (await created.json()) as { id: string }
+
+  const slotsResponse = await request.get(
+    `/api/meeting-types/${meetingType.id}/slots`,
+  )
+  const slots = (await slotsResponse.json()) as { startsAt: string }[]
+
+  const booked = await request.post('/api/bookings', {
+    data: {
+      meetingTypeId: meetingType.id,
+      startsAt: slots[0]?.startsAt,
+      guestName: 'Мария',
+      guestEmail,
+    },
+  })
+  expect(booked.status()).toBe(201)
+
+  await page.goto('/owner')
+  const meetingTypeItem = page
+    .getByRole('listitem')
+    .filter({ hasText: title })
+    .first()
+  await expect(meetingTypeItem).toBeVisible()
+  await expect(page.getByTestId('booking').filter({ hasText: guestEmail })).toBeVisible()
+  await expect(page.getByTestId('clear-data')).toBeEnabled()
+
+  await page.getByTestId('clear-data').click()
+
+  await expect(meetingTypeItem).toHaveCount(0)
+  await expect(page.getByTestId('booking').filter({ hasText: guestEmail })).toHaveCount(0)
+  await expect(page.getByText('Пока нет созданных типов встреч.')).toBeVisible()
+  await expect(page.getByText('Пока нет предстоящих встреч.')).toBeVisible()
+  await expect(page.getByTestId('clear-data')).toBeDisabled()
+
+  expect(await (await request.get('/api/meeting-types')).json()).toEqual([])
+  expect(await (await request.get('/api/bookings')).json()).toEqual([])
+})
+
 test('owner sees a validation error from the API', async ({ page }) => {
   await page.goto('/owner')
 

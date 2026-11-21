@@ -3,12 +3,15 @@ import { BookingList } from '@/components/BookingList'
 import { MeetingTypeForm } from '@/components/MeetingTypeForm'
 import { MeetingTypeList } from '@/components/MeetingTypeList'
 import { PageLayout } from '@/components/PageLayout'
-import { listBookings, listMeetingTypes } from '@/lib/api'
+import { Button } from '@/components/ui/button'
+import { clearData, listBookings, listMeetingTypes } from '@/lib/api'
 import { useApiResource } from '@/lib/useApiResource'
 
 export function OwnerPage() {
   const [meetingTypesReloadKey, setMeetingTypesReloadKey] = useState(0)
   const [bookingsReloadKey, setBookingsReloadKey] = useState(0)
+  const [isClearing, setIsClearing] = useState(false)
+  const [clearError, setClearError] = useState<string | null>(null)
 
   const meetingTypesResource = useApiResource(
     listMeetingTypes,
@@ -27,6 +30,31 @@ export function OwnerPage() {
   function refresh() {
     setMeetingTypesReloadKey((key) => key + 1)
     setBookingsReloadKey((key) => key + 1)
+  }
+
+  const hasData = meetingTypes.length > 0 || bookings.length > 0
+  const isClearDisabled =
+    isClearing ||
+    meetingTypesResource.isLoading ||
+    bookingsResource.isLoading ||
+    !hasData
+
+  async function handleClear() {
+    setIsClearing(true)
+    setClearError(null)
+
+    try {
+      await clearData()
+      meetingTypesResource.setData([])
+      bookingsResource.setData([])
+      refresh()
+    } catch (caught) {
+      setClearError(
+        caught instanceof Error ? caught.message : 'Не удалось очистить данные',
+      )
+    } finally {
+      setIsClearing(false)
+    }
   }
 
   useEffect(() => {
@@ -50,6 +78,22 @@ export function OwnerPage() {
       subtitle="Создайте тип встречи, чтобы гости могли его забронировать"
       title="Управление календарём"
     >
+      <section className="space-y-2">
+        <Button
+          data-testid="clear-data"
+          disabled={isClearDisabled}
+          onClick={() => void handleClear()}
+          type="button"
+          variant="destructive"
+        >
+          Очистить данные
+        </Button>
+        {clearError ? (
+          <p className="text-sm text-destructive" role="alert">
+            {clearError}
+          </p>
+        ) : null}
+      </section>
       <MeetingTypeForm
         onCreated={(meetingType) =>
           meetingTypesResource.setData((current) => [
