@@ -34,13 +34,13 @@ model MeetingType {
   id: string;
   title: string;
   description: string;
-  durationMinutes: int32;
+  durationMinutes: 15 | 30 | 45 | 60;
 }
 
 model MeetingTypeInput {
   title: string;
   description: string;
-  durationMinutes: int32;
+  durationMinutes: 15 | 30 | 45 | 60;
 }
 
 model Slot {

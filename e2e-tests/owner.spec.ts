@@ -18,7 +18,7 @@ test('owner creates a meeting type and sees it in the list', async ({ page }) =>
 
   await page.getByLabel('Название').fill('Консультация')
   await page.getByLabel('Описание').fill('Обсуждение проекта')
-  await page.getByLabel('Длительность, минут').fill('45')
+  await page.getByLabel('Длительность, минут').selectOption('45')
   await page.getByRole('button', { name: 'Создать тип встречи' }).click()
 
   const created = page.getByRole('listitem').filter({ hasText: 'Консультация' })
@@ -38,7 +38,7 @@ test('owner sees a new booking after opening the page', async ({
   await page.goto('/owner')
   await page.getByLabel('Название').fill(title)
   await page.getByLabel('Описание').fill('Встреча с владельцем')
-  await page.getByLabel('Длительность, минут').fill('30')
+  await page.getByLabel('Длительность, минут').selectOption('30')
   await page.getByRole('button', { name: 'Создать тип встречи' }).click()
   await expect(page.getByRole('listitem').filter({ hasText: title })).toBeVisible()
 

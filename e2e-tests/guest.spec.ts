@@ -12,7 +12,7 @@ async function createMeetingType(
   await page.goto('/owner')
   await page.getByLabel('Название').fill(input.title)
   await page.getByLabel('Описание').fill(input.description)
-  await page.getByLabel('Длительность, минут').fill(input.durationMinutes)
+  await page.getByLabel('Длительность, минут').selectOption(input.durationMinutes)
   await page.getByRole('button', { name: 'Создать тип встречи' }).click()
 
   await expect(page.getByRole('listitem').filter({ hasText: input.title })).toBeVisible()
@@ -50,14 +50,54 @@ test('guest selects a meeting type and sees slots grouped by days', async ({ pag
   await expect(page.getByRole('heading', { name: 'Выберите тип встречи' })).toBeVisible()
 })
 
-test('guest sees an empty state when no slot fits into the workday', async ({ page }) => {
-  const title = uniqueTitle('Долгая встреча')
+test('guest sees an empty state when all slots are booked', async ({
+  page,
+  request,
+}) => {
+  const title = uniqueTitle('Заполненный календарь')
 
   await createMeetingType(page, {
     title,
-    description: 'Встреча на весь день',
-    durationMinutes: '600',
+    description: 'Все слоты будут заняты',
+    durationMinutes: '60',
   })
+
+  const typesResponse = await request.get('/api/meeting-types')
+  const meetingTypes = (await typesResponse.json()) as Array<{
+    id: string
+    title: string
+  }>
+  const meetingType = meetingTypes.find((item) => item.title === title)
+
+  if (!meetingType) {
+    throw new Error(`Meeting type ${title} was not created`)
+  }
+
+  let slotsResponse = await request.get(
+    `/api/meeting-types/${meetingType.id}/slots`,
+  )
+  let slots = (await slotsResponse.json()) as Array<{ startsAt: string }>
+
+  for (let attempt = 0; slots.length > 0; attempt += 1) {
+    if (attempt >= 200) {
+      throw new Error('Too many slots to fill')
+    }
+
+    const booked = await request.post('/api/bookings', {
+      data: {
+        meetingTypeId: meetingType.id,
+        startsAt: slots[0]?.startsAt,
+        guestName: 'Занятый гость',
+        guestEmail: `filled-${attempt}@example.com`,
+      },
+    })
+    expect(booked.status()).toBe(201)
+
+    slotsResponse = await request.get(
+      `/api/meeting-types/${meetingType.id}/slots`,
+    )
+    slots = (await slotsResponse.json()) as Array<{ startsAt: string }>
+  }
 
   await page.goto('/guest')
   await page.getByRole('button', { name: new RegExp(title) }).click()

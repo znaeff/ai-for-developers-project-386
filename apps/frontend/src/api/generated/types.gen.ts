@@ -28,13 +28,13 @@ export type MeetingType = {
     id: string;
     title: string;
     description: string;
-    durationMinutes: number;
+    durationMinutes: 15 | 30 | 45 | 60;
 };
 
 export type MeetingTypeInput = {
     title: string;
     description: string;
-    durationMinutes: number;
+    durationMinutes: 15 | 30 | 45 | 60;
 };
 
 export type Slot = {

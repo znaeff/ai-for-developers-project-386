@@ -23,7 +23,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 const WINDOW_DAYS = 14
 const WORKDAY_START_MINUTES = 9 * 60
 const WORKDAY_END_MINUTES = 18 * 60
-const SLOT_STEP_MINUTES = 30
+const SLOT_STEP_MINUTES = 15
 
 export function generateSlots(
   meetingType: MeetingType,

@@ -280,8 +280,13 @@
             "type": "string"
           },
           "durationMinutes": {
-            "type": "integer",
-            "format": "int32"
+            "type": "number",
+            "enum": [
+              15,
+              30,
+              45,
+              60
+            ]
           }
         }
       },
@@ -300,8 +305,13 @@
             "type": "string"
           },
           "durationMinutes": {
-            "type": "integer",
-            "format": "int32"
+            "type": "number",
+            "enum": [
+              15,
+              30,
+              45,
+              60
+            ]
           }
         }
       },

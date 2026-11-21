@@ -62,6 +62,15 @@ describe('generated OpenAPI contract', () => {
     )
   })
 
+  it('restricts durationMinutes to the fixed list', () => {
+    expect(
+      contract.components.schemas.MeetingType?.properties?.durationMinutes,
+    ).toMatchObject({ enum: [15, 30, 45, 60] })
+    expect(
+      contract.components.schemas.MeetingTypeInput?.properties?.durationMinutes,
+    ).toMatchObject({ enum: [15, 30, 45, 60] })
+  })
+
   it.each([
     ['MeetingType', ['id', 'title', 'description', 'durationMinutes']],
     ['Slot', ['startsAt', 'endsAt']],
