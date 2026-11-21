@@ -166,7 +166,9 @@ it('rejects a meeting type without a title', async () => {
   expect(await response.json()).toEqual({ error: expect.any(String) })
 })
 
-it.each([0, -15, 2.5])('rejects duration %s minutes', async (durationMinutes) => {
+it.each([0, -15, 2.5, 14, 16, 75, 600])(
+  'rejects duration %s minutes',
+  async (durationMinutes) => {
   const address = await startServer()
   const response = await fetch(`http://127.0.0.1:${address.port}/meeting-types`, {
     method: 'POST',
@@ -228,7 +230,7 @@ it('rejects malformed JSON with a JSON error', async () => {
   expect(await response.json()).toEqual({ error: expect.any(String) })
 })
 
-it('generates 30-minute slots inside working hours with a Moscow offset', async () => {
+it('generates slots on a 15-minute grid inside working hours', async () => {
   const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
   const address = await startServer({ now: () => now })
   const meetingType = await createMeetingType(address.port, { durationMinutes: 30 })
@@ -240,7 +242,11 @@ it('generates 30-minute slots inside working hours with a Moscow offset', async 
     startsAt: '2026-01-05T09:00:00+03:00',
     endsAt: '2026-01-05T09:30:00+03:00',
   })
-  expect(firstDay).toHaveLength(18)
+  expect(firstDay).toHaveLength(35)
+  expect(firstDay[1]).toEqual({
+    startsAt: '2026-01-05T09:15:00+03:00',
+    endsAt: '2026-01-05T09:45:00+03:00',
+  })
   expect(firstDay.at(-1)).toEqual({
     startsAt: '2026-01-05T17:30:00+03:00',
     endsAt: '2026-01-05T18:00:00+03:00',
@@ -250,8 +256,8 @@ it('generates 30-minute slots inside working hours with a Moscow offset', async 
 })
 
 it.each([
-  ['09:10', '2026-01-05T09:30:00+03:00'],
-  ['09:00', '2026-01-05T09:30:00+03:00'],
+  ['09:10', '2026-01-05T09:15:00+03:00'],
+  ['09:00', '2026-01-05T09:15:00+03:00'],
 ])('skips slots that already started at %s Moscow time', async (moscowTime, expected) => {
   const now = new Date(`2026-01-05T${moscowTime}:00+03:00`)
   const address = await startServer({ now: () => now })
@@ -302,7 +308,7 @@ it('limits slots to the next 14 days', async () => {
   expect(slots.some((slot) => slot.startsAt.startsWith('2026-01-19'))).toBe(false)
 })
 
-it('keeps 45-minute meetings on the 30-minute grid and before 18:00', async () => {
+it('keeps 45-minute meetings on the 15-minute grid and before 18:00', async () => {
   const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
   const address = await startServer({ now: () => now })
   const meetingType = await createMeetingType(address.port, { durationMinutes: 45 })
@@ -315,35 +321,18 @@ it('keeps 45-minute meetings on the 30-minute grid and before 18:00', async () =
     endsAt: '2026-01-05T09:45:00+03:00',
   })
   expect(firstDay[1]).toEqual({
+    startsAt: '2026-01-05T09:15:00+03:00',
+    endsAt: '2026-01-05T10:00:00+03:00',
+  })
+  expect(firstDay[2]).toEqual({
     startsAt: '2026-01-05T09:30:00+03:00',
     endsAt: '2026-01-05T10:15:00+03:00',
   })
   expect(firstDay.some((slot) => slot.startsAt.startsWith('2026-01-05T09:45'))).toBe(
-    false,
+    true,
   )
   expect(firstDay.at(-1)).toEqual({
-    startsAt: '2026-01-05T17:00:00+03:00',
-    endsAt: '2026-01-05T17:45:00+03:00',
-  })
-})
-
-it('returns no slots when the meeting does not fit into the workday', async () => {
-  const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
-  const address = await startServer({ now: () => now })
-  const meetingType = await createMeetingType(address.port, { durationMinutes: 600 })
-
-  expect(await getSlots(address.port, meetingType.id)).toEqual([])
-})
-
-it('returns a single slot when the meeting fills the whole workday', async () => {
-  const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
-  const address = await startServer({ now: () => now })
-  const meetingType = await createMeetingType(address.port, { durationMinutes: 540 })
-
-  const slots = await getSlots(address.port, meetingType.id)
-
-  expect(slots[0]).toEqual({
-    startsAt: '2026-01-05T09:00:00+03:00',
+    startsAt: '2026-01-05T17:15:00+03:00',
     endsAt: '2026-01-05T18:00:00+03:00',
   })
 })
@@ -434,8 +423,9 @@ it('hides a booked slot from the available slots', async () => {
 
   const after = await getSlots(address.port, meetingType.id)
 
-  expect(after).toHaveLength(before.length - 1)
+  expect(after).toHaveLength(before.length - 2)
   expect(after.map((slot) => slot.startsAt)).not.toContain('2026-01-05T09:00:00+03:00')
+  expect(after.map((slot) => slot.startsAt)).not.toContain('2026-01-05T09:15:00+03:00')
   expect(after.map((slot) => slot.startsAt)).toContain('2026-01-05T09:30:00+03:00')
 })
 
@@ -453,9 +443,11 @@ it('hides every slot that overlaps a 45-minute booking', async () => {
   const after = await getSlots(address.port, meetingType.id)
   const remainingStarts = after.map((slot) => slot.startsAt)
 
-  expect(after).toHaveLength(before.length - 2)
+  expect(after).toHaveLength(before.length - 3)
   expect(remainingStarts).not.toContain('2026-01-05T09:00:00+03:00')
+  expect(remainingStarts).not.toContain('2026-01-05T09:15:00+03:00')
   expect(remainingStarts).not.toContain('2026-01-05T09:30:00+03:00')
+  expect(remainingStarts).toContain('2026-01-05T09:45:00+03:00')
   expect(remainingStarts).toContain('2026-01-05T10:00:00+03:00')
 })
 
@@ -480,7 +472,9 @@ it('hides slots of another meeting type that overlap a booking', async () => {
   const starts = slots.map((slot) => slot.startsAt)
 
   expect(starts).not.toContain('2026-01-05T09:00:00+03:00')
+  expect(starts).not.toContain('2026-01-05T09:15:00+03:00')
   expect(starts).not.toContain('2026-01-05T09:30:00+03:00')
+  expect(starts).toContain('2026-01-05T09:45:00+03:00')
   expect(starts).toContain('2026-01-05T10:00:00+03:00')
 })
 
@@ -585,7 +579,7 @@ it('does not create a second booking after a conflict', async () => {
   })
   const afterConflict = await getSlots(address.port, meetingType.id)
 
-  expect(afterFirst).toHaveLength(before.length - 2)
+  expect(afterFirst).toHaveLength(before.length - 3)
   expect(afterConflict).toEqual(afterFirst)
 })
 
@@ -660,7 +654,7 @@ it('rejects a booking outside the available slot grid', async () => {
 
   const offGrid = await bookSlot(address.port, {
     meetingTypeId: meetingType.id,
-    startsAt: '2026-01-05T09:15:00+03:00',
+    startsAt: '2026-01-05T09:10:00+03:00',
   })
   const weekend = await bookSlot(address.port, {
     meetingTypeId: meetingType.id,

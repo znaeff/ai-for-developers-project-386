@@ -1,10 +1,14 @@
 import { randomUUID } from 'node:crypto'
 
+export const ALLOWED_DURATION_MINUTES = [15, 30, 45, 60] as const
+
+export type AllowedDurationMinutes = (typeof ALLOWED_DURATION_MINUTES)[number]
+
 export type MeetingType = {
   id: string
   title: string
   description: string
-  durationMinutes: number
+  durationMinutes: AllowedDurationMinutes
 }
 
 export type MeetingTypeInput = Omit<MeetingType, 'id'>
@@ -30,10 +34,12 @@ export function parseMeetingTypeInput(input: unknown): MeetingTypeValidation {
 
   if (
     typeof durationMinutes !== 'number' ||
-    !Number.isInteger(durationMinutes) ||
-    durationMinutes <= 0
+    !ALLOWED_DURATION_MINUTES.includes(durationMinutes as AllowedDurationMinutes)
   ) {
-    return { ok: false, error: 'Длительность должна быть положительным целым числом минут' }
+    return {
+      ok: false,
+      error: 'Длительность должна быть одной из: 15, 30, 45, 60 минут',
+    }
   }
 
   return {
@@ -41,7 +47,7 @@ export function parseMeetingTypeInput(input: unknown): MeetingTypeValidation {
     value: {
       title: title.trim(),
       description: description ?? '',
-      durationMinutes,
+      durationMinutes: durationMinutes as AllowedDurationMinutes,
     },
   }
 }

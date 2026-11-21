@@ -1,7 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { inputClassName } from '@/components/formStyles'
 import { Button } from '@/components/ui/button'
-import { createMeetingType, type MeetingType } from '@/lib/api'
+import {
+  createMeetingType,
+  type MeetingType,
+  type MeetingTypeInput,
+} from '@/lib/api'
 
 type MeetingTypeFormProps = {
   onCreated: (meetingType: MeetingType) => void
@@ -25,7 +29,9 @@ export function MeetingTypeForm({ onCreated }: MeetingTypeFormProps) {
       const meetingType = await createMeetingType({
         title,
         description,
-        durationMinutes: Number(durationMinutes),
+        durationMinutes: Number(
+          durationMinutes,
+        ) as MeetingTypeInput['durationMinutes'],
       })
       onCreated(meetingType)
       setTitle('')
@@ -73,16 +79,17 @@ export function MeetingTypeForm({ onCreated }: MeetingTypeFormProps) {
           <label className="text-sm font-medium" htmlFor="meeting-type-duration">
             Длительность, минут
           </label>
-          <input
+          <select
             className={inputClassName}
             id="meeting-type-duration"
-            inputMode="numeric"
-            min="1"
             onChange={(event) => setDurationMinutes(event.target.value)}
-            step="1"
-            type="number"
             value={durationMinutes}
-          />
+          >
+            <option value="15">15 минут</option>
+            <option value="30">30 минут</option>
+            <option value="45">45 минут</option>
+            <option value="60">60 минут</option>
+          </select>
         </div>
 
         {error ? (
