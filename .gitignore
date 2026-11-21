@@ -11,3 +11,7 @@ coverage/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Local secrets
+.env*
+!.env.example

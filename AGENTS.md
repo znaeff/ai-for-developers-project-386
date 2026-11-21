@@ -52,3 +52,7 @@ Triage roles map to GitHub labels `needs-triage`, `needs-info`, `ready-for-agent
 ### Domain docs
 
 Single-context domain docs: root `GLOSSARY.md` and `docs/adr/`. See `docs/agents/domain.md`.
+
+### Render MCP
+
+The repository's `opencode.json` configures the `render` MCP server at `https://mcp.render.com/mcp` and reads the bearer token from `RENDER_API_KEY`; no credential is stored in the repo. Create a key at `https://dashboard.render.com/u/settings#api-keys`, export `RENDER_API_KEY` in the environment that starts OpenCode (restart the background service if it was already running), and verify with `opencode mcp list`. Never commit the key — `.env*` is ignored except `.env.example`.
