@@ -76,7 +76,10 @@ test('guest sees an empty state when all slots are booked', async ({
   let slotsResponse = await request.get(
     `/api/meeting-types/${meetingType.id}/slots`,
   )
-  let slots = (await slotsResponse.json()) as Array<{ startsAt: string }>
+  let slots = ((await slotsResponse.json()) as Array<{
+    startsAt: string
+    isAvailable: boolean
+  }>).filter((slot) => slot.isAvailable)
 
   for (let attempt = 0; slots.length > 0; attempt += 1) {
     if (attempt >= 200) {
@@ -96,7 +99,10 @@ test('guest sees an empty state when all slots are booked', async ({
     slotsResponse = await request.get(
       `/api/meeting-types/${meetingType.id}/slots`,
     )
-    slots = (await slotsResponse.json()) as Array<{ startsAt: string }>
+    slots = ((await slotsResponse.json()) as Array<{
+      startsAt: string
+      isAvailable: boolean
+    }>).filter((slot) => slot.isAvailable)
   }
 
   await page.goto('/guest')
@@ -104,9 +110,10 @@ test('guest sees an empty state when all slots are booked', async ({
 
   await expect(page.getByRole('heading', { name: 'Свободные слоты' })).toBeVisible()
   await expect(page.getByText('Свободных слотов нет.')).toBeVisible()
+  await expect(page.getByTestId('slot').first()).toBeDisabled()
 })
 
-test('guest books a slot and sees it disappear from the list', async ({ page }) => {
+test('guest books a slot and it becomes unavailable', async ({ page }) => {
   const title = uniqueTitle('Бронирование')
 
   await createMeetingType(page, {
@@ -136,13 +143,14 @@ test('guest books a slot and sees it disappear from the list', async ({ page }) 
   await expect(confirmation).toContainText(slotLabel)
   await expect(confirmation).toContainText('Анна')
 
-  await expect(
-    page
-      .getByTestId('slot-day')
-      .first()
-      .getByTestId('slot')
-      .filter({ hasText: slotLabel }),
-  ).toHaveCount(0)
+  const bookedSlot = page
+    .getByTestId('slot-day')
+    .first()
+    .getByTestId('slot')
+    .filter({ hasText: slotLabel })
+
+  await expect(bookedSlot).toBeVisible()
+  await expect(bookedSlot).toBeDisabled()
 })
 
 test('guest sees a fresh slot list when the chosen slot was taken', async ({
@@ -191,7 +199,10 @@ test('guest sees a fresh slot list when the chosen slot was taken', async ({
   await expect(page.getByRole('alert')).toContainText(
     'Этот слот уже занят. Пожалуйста, выберите другое время.',
   )
-  await expect(firstDay.getByTestId('slot').first()).not.toHaveText(slotLabel)
+  const conflictSlot = firstDay.getByTestId('slot').filter({ hasText: slotLabel })
+
+  await expect(conflictSlot).toBeVisible()
+  await expect(conflictSlot).toBeDisabled()
 })
 
 test('guest sees validation errors in the booking form', async ({ page }) => {

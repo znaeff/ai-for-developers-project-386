@@ -41,12 +41,16 @@ async function createMeetingType(
 async function getSlots(
   port: number,
   meetingTypeId: string,
-): Promise<{ startsAt: string; endsAt: string }[]> {
+): Promise<{ startsAt: string; endsAt: string; isAvailable: boolean }[]> {
   const response = await fetch(
     `http://127.0.0.1:${port}/meeting-types/${meetingTypeId}/slots`,
   )
 
-  return (await response.json()) as { startsAt: string; endsAt: string }[]
+  return (await response.json()) as {
+    startsAt: string
+    endsAt: string
+    isAvailable: boolean
+  }[]
 }
 
 async function getBookings(
@@ -241,15 +245,18 @@ it('generates slots on a 15-minute grid inside working hours', async () => {
   expect(slots[0]).toEqual({
     startsAt: '2026-01-05T09:00:00+03:00',
     endsAt: '2026-01-05T09:30:00+03:00',
+    isAvailable: true,
   })
   expect(firstDay).toHaveLength(35)
   expect(firstDay[1]).toEqual({
     startsAt: '2026-01-05T09:15:00+03:00',
     endsAt: '2026-01-05T09:45:00+03:00',
+    isAvailable: true,
   })
   expect(firstDay.at(-1)).toEqual({
     startsAt: '2026-01-05T17:30:00+03:00',
     endsAt: '2026-01-05T18:00:00+03:00',
+    isAvailable: true,
   })
   expect(slots.every((slot) => /\+03:00$/.test(slot.startsAt))).toBe(true)
   expect(slots.every((slot) => /\+03:00$/.test(slot.endsAt))).toBe(true)
@@ -304,6 +311,7 @@ it('limits slots to the next 14 days', async () => {
   expect(slots.at(-1)).toEqual({
     startsAt: '2026-01-16T17:30:00+03:00',
     endsAt: '2026-01-16T18:00:00+03:00',
+    isAvailable: true,
   })
   expect(slots.some((slot) => slot.startsAt.startsWith('2026-01-19'))).toBe(false)
 })
@@ -319,14 +327,17 @@ it('keeps 45-minute meetings on the 15-minute grid and before 18:00', async () =
   expect(firstDay[0]).toEqual({
     startsAt: '2026-01-05T09:00:00+03:00',
     endsAt: '2026-01-05T09:45:00+03:00',
+    isAvailable: true,
   })
   expect(firstDay[1]).toEqual({
     startsAt: '2026-01-05T09:15:00+03:00',
     endsAt: '2026-01-05T10:00:00+03:00',
+    isAvailable: true,
   })
   expect(firstDay[2]).toEqual({
     startsAt: '2026-01-05T09:30:00+03:00',
     endsAt: '2026-01-05T10:15:00+03:00',
+    isAvailable: true,
   })
   expect(firstDay.some((slot) => slot.startsAt.startsWith('2026-01-05T09:45'))).toBe(
     true,
@@ -334,6 +345,7 @@ it('keeps 45-minute meetings on the 15-minute grid and before 18:00', async () =
   expect(firstDay.at(-1)).toEqual({
     startsAt: '2026-01-05T17:15:00+03:00',
     endsAt: '2026-01-05T18:00:00+03:00',
+    isAvailable: true,
   })
 })
 
@@ -410,7 +422,7 @@ it('creates a booking for an available slot', async () => {
   expect(Number.isNaN(Date.parse(body.createdAt as string))).toBe(false)
 })
 
-it('hides a booked slot from the available slots', async () => {
+it('marks a booked slot and overlapping slots as unavailable', async () => {
   const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
   const address = await startServer({ now: () => now })
   const meetingType = await createMeetingType(address.port, { durationMinutes: 30 })
@@ -423,13 +435,19 @@ it('hides a booked slot from the available slots', async () => {
 
   const after = await getSlots(address.port, meetingType.id)
 
-  expect(after).toHaveLength(before.length - 2)
-  expect(after.map((slot) => slot.startsAt)).not.toContain('2026-01-05T09:00:00+03:00')
-  expect(after.map((slot) => slot.startsAt)).not.toContain('2026-01-05T09:15:00+03:00')
-  expect(after.map((slot) => slot.startsAt)).toContain('2026-01-05T09:30:00+03:00')
+  expect(after).toHaveLength(before.length)
+  expect(after.find((slot) => slot.startsAt === '2026-01-05T09:00:00+03:00')).toMatchObject({
+    isAvailable: false,
+  })
+  expect(after.find((slot) => slot.startsAt === '2026-01-05T09:15:00+03:00')).toMatchObject({
+    isAvailable: false,
+  })
+  expect(after.find((slot) => slot.startsAt === '2026-01-05T09:30:00+03:00')).toMatchObject({
+    isAvailable: true,
+  })
 })
 
-it('hides every slot that overlaps a 45-minute booking', async () => {
+it('marks every slot that overlaps a 45-minute booking as unavailable', async () => {
   const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
   const address = await startServer({ now: () => now })
   const meetingType = await createMeetingType(address.port, { durationMinutes: 45 })
@@ -441,17 +459,27 @@ it('hides every slot that overlaps a 45-minute booking', async () => {
   })
 
   const after = await getSlots(address.port, meetingType.id)
-  const remainingStarts = after.map((slot) => slot.startsAt)
+  const unavailableStarts = after
+    .filter((slot) => !slot.isAvailable)
+    .map((slot) => slot.startsAt)
 
-  expect(after).toHaveLength(before.length - 3)
-  expect(remainingStarts).not.toContain('2026-01-05T09:00:00+03:00')
-  expect(remainingStarts).not.toContain('2026-01-05T09:15:00+03:00')
-  expect(remainingStarts).not.toContain('2026-01-05T09:30:00+03:00')
-  expect(remainingStarts).toContain('2026-01-05T09:45:00+03:00')
-  expect(remainingStarts).toContain('2026-01-05T10:00:00+03:00')
+  expect(after).toHaveLength(before.length)
+  expect(unavailableStarts).toEqual(
+    expect.arrayContaining([
+      '2026-01-05T09:00:00+03:00',
+      '2026-01-05T09:15:00+03:00',
+      '2026-01-05T09:30:00+03:00',
+    ]),
+  )
+  expect(after.find((slot) => slot.startsAt === '2026-01-05T09:45:00+03:00')).toMatchObject({
+    isAvailable: true,
+  })
+  expect(after.find((slot) => slot.startsAt === '2026-01-05T10:00:00+03:00')).toMatchObject({
+    isAvailable: true,
+  })
 })
 
-it('hides slots of another meeting type that overlap a booking', async () => {
+it('marks slots of another meeting type that overlap a booking as unavailable', async () => {
   const now = new Date('2026-01-05T05:00:00Z') // Monday, 08:00 in Moscow
   const address = await startServer({ now: () => now })
   const longType = await createMeetingType(address.port, {
@@ -469,13 +497,22 @@ it('hides slots of another meeting type that overlap a booking', async () => {
   })
 
   const slots = await getSlots(address.port, shortType.id)
-  const starts = slots.map((slot) => slot.startsAt)
 
-  expect(starts).not.toContain('2026-01-05T09:00:00+03:00')
-  expect(starts).not.toContain('2026-01-05T09:15:00+03:00')
-  expect(starts).not.toContain('2026-01-05T09:30:00+03:00')
-  expect(starts).toContain('2026-01-05T09:45:00+03:00')
-  expect(starts).toContain('2026-01-05T10:00:00+03:00')
+  expect(slots.find((slot) => slot.startsAt === '2026-01-05T09:00:00+03:00')).toMatchObject({
+    isAvailable: false,
+  })
+  expect(slots.find((slot) => slot.startsAt === '2026-01-05T09:15:00+03:00')).toMatchObject({
+    isAvailable: false,
+  })
+  expect(slots.find((slot) => slot.startsAt === '2026-01-05T09:30:00+03:00')).toMatchObject({
+    isAvailable: false,
+  })
+  expect(slots.find((slot) => slot.startsAt === '2026-01-05T09:45:00+03:00')).toMatchObject({
+    isAvailable: true,
+  })
+  expect(slots.find((slot) => slot.startsAt === '2026-01-05T10:00:00+03:00')).toMatchObject({
+    isAvailable: true,
+  })
 })
 
 it('returns 409 when a booking overlaps a booking of another meeting type', async () => {
@@ -579,7 +616,7 @@ it('does not create a second booking after a conflict', async () => {
   })
   const afterConflict = await getSlots(address.port, meetingType.id)
 
-  expect(afterFirst).toHaveLength(before.length - 3)
+  expect(afterFirst).toHaveLength(before.length)
   expect(afterConflict).toEqual(afterFirst)
 })
 

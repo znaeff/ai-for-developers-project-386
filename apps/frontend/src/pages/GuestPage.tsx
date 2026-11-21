@@ -39,6 +39,7 @@ export function GuestPage() {
 
   const meetingTypes = meetingTypesResource.data ?? []
   const slots = slotsResource.isLoading ? [] : (slotsResource.data ?? [])
+  const availableSlots = slots.filter((slot) => slot.isAvailable)
 
   function selectMeetingType(meetingType: MeetingType) {
     setSelectedType(meetingType)
@@ -137,7 +138,9 @@ export function GuestPage() {
               </p>
             ) : null}
 
-            {!slotsResource.isLoading && !slotsResource.error && slots.length === 0 ? (
+            {!slotsResource.isLoading &&
+            !slotsResource.error &&
+            availableSlots.length === 0 ? (
               <p className="text-muted-foreground">Свободных слотов нет.</p>
             ) : null}
 

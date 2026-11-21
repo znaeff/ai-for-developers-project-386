@@ -319,7 +319,8 @@
         "type": "object",
         "required": [
           "startsAt",
-          "endsAt"
+          "endsAt",
+          "isAvailable"
         ],
         "properties": {
           "startsAt": {
@@ -329,6 +330,9 @@
           "endsAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "isAvailable": {
+            "type": "boolean"
           }
         }
       }

@@ -40,6 +40,7 @@ export type MeetingTypeInput = {
 export type Slot = {
     startsAt: string;
     endsAt: string;
+    isAvailable: boolean;
 };
 
 export type ListBookingsData = {

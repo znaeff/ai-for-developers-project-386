@@ -3,6 +3,7 @@ import type { MeetingType } from './meeting-types.js'
 export type Slot = {
   startsAt: string
   endsAt: string
+  isAvailable: boolean
 }
 
 export type TimeInterval = {
@@ -61,13 +62,14 @@ export function generateSlots(
 
       const endsAtMs = startsAtMs + meetingType.durationMinutes * 60 * 1000
       const candidate = { startsAtMs, endsAtMs }
-      if (busy.some((interval) => intervalsOverlap(candidate, interval))) {
-        continue
-      }
+      const isAvailable = !busy.some((interval) =>
+        intervalsOverlap(candidate, interval),
+      )
 
       slots.push({
         startsAt: formatMoscowIso(startsAtMs),
         endsAt: formatMoscowIso(endsAtMs),
+        isAvailable,
       })
     }
   }

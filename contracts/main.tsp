@@ -46,6 +46,7 @@ model MeetingTypeInput {
 model Slot {
   startsAt: utcDateTime;
   endsAt: utcDateTime;
+  isAvailable: boolean;
 }
 
 model Booking {
