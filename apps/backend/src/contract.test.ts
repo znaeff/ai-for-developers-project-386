@@ -73,7 +73,7 @@ describe('generated OpenAPI contract', () => {
 
   it.each([
     ['MeetingType', ['id', 'title', 'description', 'durationMinutes']],
-    ['Slot', ['startsAt', 'endsAt']],
+    ['Slot', ['startsAt', 'endsAt', 'isAvailable']],
     [
       'Booking',
       [
