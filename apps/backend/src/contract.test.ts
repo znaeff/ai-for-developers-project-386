@@ -34,7 +34,7 @@ describe('generated OpenAPI contract', () => {
 
   it.each([
     ['/meeting-types', 'get', 'listMeetingTypes', ['200']],
-    ['/meeting-types', 'post', 'createMeetingType', ['201', '400']],
+    ['/meeting-types', 'post', 'createMeetingType', ['201', '400', '409']],
     ['/meeting-types/{id}/slots', 'get', 'listSlots', ['200', '404']],
     ['/bookings', 'get', 'listBookings', ['200']],
     ['/bookings', 'post', 'createBooking', ['201', '400', '404', '409']],

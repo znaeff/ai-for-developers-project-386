@@ -52,10 +52,14 @@ export function parseMeetingTypeInput(input: unknown): MeetingTypeValidation {
   }
 }
 
+export type MeetingTypeCreation =
+  | { ok: true; meetingType: MeetingType }
+  | { ok: false; reason: 'duplicate-duration' }
+
 export type MeetingTypeStore = {
   list(): MeetingType[]
   find(id: string): MeetingType | undefined
-  create(input: MeetingTypeInput): MeetingType
+  create(input: MeetingTypeInput): MeetingTypeCreation
   clear(): void
 }
 
@@ -70,9 +74,18 @@ export function createMeetingTypeStore(): MeetingTypeStore {
       return meetingTypes.find((meetingType) => meetingType.id === id)
     },
     create(input) {
+      if (
+        meetingTypes.some(
+          (meetingType) =>
+            meetingType.durationMinutes === input.durationMinutes,
+        )
+      ) {
+        return { ok: false, reason: 'duplicate-duration' }
+      }
+
       const meetingType: MeetingType = { id: randomUUID(), ...input }
       meetingTypes.push(meetingType)
-      return meetingType
+      return { ok: true, meetingType }
     },
     clear() {
       meetingTypes.length = 0

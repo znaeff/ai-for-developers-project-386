@@ -122,7 +122,15 @@ async function handleRequest(
         return
       }
 
-      sendJson(response, 201, meetingTypes.create(parsed.value))
+      const created = meetingTypes.create(parsed.value)
+      if (!created.ok) {
+        sendJson(response, 409, {
+          error: `Тип встречи с длительностью ${parsed.value.durationMinutes} минут уже существует`,
+        })
+        return
+      }
+
+      sendJson(response, 201, created.meetingType)
       return
     }
 
