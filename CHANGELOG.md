@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/znaeff/ai-for-developers-project-386/compare/calendar-booking-v0.3.0...calendar-booking-v0.4.0) (2026-11-21)
+
+
+### Features
+
+* **schedule:** use 15-minute grid and fixed durations ([#33](https://github.com/znaeff/ai-for-developers-project-386/issues/33)) ([80c0346](https://github.com/znaeff/ai-for-developers-project-386/commit/80c034681b6850cdfcf752ea4f8131cbd4d8acb3))
+* switch to a 15-minute slot grid and fixed durations ([b9fec68](https://github.com/znaeff/ai-for-developers-project-386/commit/b9fec681e772befa5c0298397f8f564dc9fcd09b))
+
 ## [0.3.0](https://github.com/znaeff/ai-for-developers-project-386/compare/calendar-booking-v0.2.1...calendar-booking-v0.3.0) (2026-11-20)
 
 
