@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/znaeff/ai-for-developers-project-386/compare/calendar-booking-v0.5.0...calendar-booking-v0.6.0) (2026-11-21)
+
+
+### Features
+
+* **meeting-types:** reject duplicate durations ([#39](https://github.com/znaeff/ai-for-developers-project-386/issues/39)) ([840cd7d](https://github.com/znaeff/ai-for-developers-project-386/commit/840cd7d6123c10f616d9688c1ac060f48de4d15e))
+* reject duplicate meeting type durations ([b38067b](https://github.com/znaeff/ai-for-developers-project-386/commit/b38067bbbed6327ac4524bd81c4a6de96f7fa6a5))
+
 ## [0.5.0](https://github.com/znaeff/ai-for-developers-project-386/compare/calendar-booking-v0.4.0...calendar-booking-v0.5.0) (2026-11-21)
 
 
