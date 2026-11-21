@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/znaeff/ai-for-developers-project-386/compare/calendar-booking-v0.4.0...calendar-booking-v0.5.0) (2026-11-21)
+
+
+### Features
+
+* show unavailable slots as disabled ([24316af](https://github.com/znaeff/ai-for-developers-project-386/commit/24316af842967c9d5c2d21836a89ebaa61f44d1f))
+* **slots:** show unavailable slots as disabled ([#36](https://github.com/znaeff/ai-for-developers-project-386/issues/36)) ([8325c89](https://github.com/znaeff/ai-for-developers-project-386/commit/8325c89b596a1139b8a7d2e3fef93e08cec2f831))
+
 ## [0.4.0](https://github.com/znaeff/ai-for-developers-project-386/compare/calendar-booking-v0.3.0...calendar-booking-v0.4.0) (2026-11-21)
 
 
