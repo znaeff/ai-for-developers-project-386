@@ -94,6 +94,22 @@ export type CreateBookingResponses = {
 
 export type CreateBookingResponse = CreateBookingResponses[keyof CreateBookingResponses];
 
+export type ClearDataData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/cleanup';
+};
+
+export type ClearDataResponses = {
+    /**
+     * There is no content to send for this request, but the headers may be useful.
+     */
+    204: void;
+};
+
+export type ClearDataResponse = ClearDataResponses[keyof ClearDataResponses];
+
 export type ListMeetingTypesData = {
     body?: never;
     path?: never;

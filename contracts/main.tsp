@@ -106,3 +106,12 @@ interface Bookings {
     | NotFound
     | Conflict;
 }
+
+@route("/cleanup")
+interface Cleanup {
+  @operationId("clearData")
+  @post
+  clear(): {
+    @statusCode statusCode: 204;
+  };
+}

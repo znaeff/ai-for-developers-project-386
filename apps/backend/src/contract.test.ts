@@ -38,6 +38,7 @@ describe('generated OpenAPI contract', () => {
     ['/meeting-types/{id}/slots', 'get', 'listSlots', ['200', '404']],
     ['/bookings', 'get', 'listBookings', ['200']],
     ['/bookings', 'post', 'createBooking', ['201', '400', '404', '409']],
+    ['/cleanup', 'post', 'clearData', ['204']],
   ])(
     'declares %s %s with operation id and responses',
     (path, method, operationId, statuses) => {

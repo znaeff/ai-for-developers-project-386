@@ -1,5 +1,6 @@
 import { client } from '@/api/generated/client.gen'
 import {
+  clearData as sdkClearData,
   createBooking as sdkCreateBooking,
   createMeetingType as sdkCreateMeetingType,
   listBookings as sdkListBookings,
@@ -83,4 +84,27 @@ export function listBookings(): Promise<Booking[]> {
 
 export function createBooking(input: BookingInput): Promise<Booking> {
   return unwrap(sdkCreateBooking({ body: input }))
+}
+
+async function unwrapNoContent(result: Promise<SdkResult<void>>): Promise<void> {
+  try {
+    const { error, response } = await result
+    const status = response?.status ?? 0
+
+    if (error !== undefined) {
+      throw new ApiError(
+        isErrorResponse(error) ? error.error : 'Ошибка запроса',
+        status,
+      )
+    }
+  } catch (caught) {
+    if (caught instanceof ApiError) {
+      throw caught
+    }
+    throw new ApiError('Не удалось связаться с сервером', 0)
+  }
+}
+
+export function clearData(): Promise<void> {
+  return unwrapNoContent(sdkClearData())
 }
